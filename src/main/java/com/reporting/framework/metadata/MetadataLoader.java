@@ -3,7 +3,6 @@ package com.reporting.framework.metadata;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.reporting.framework.connection.ConnectionProvider;
 import com.reporting.framework.exception.MetadataException;
-import com.reporting.framework.mapper.ObjectMapperFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,7 +28,7 @@ public class MetadataLoader {
 
     public MetadataLoader(ConnectionProvider connectionProvider, boolean cacheEnabled) {
         this.repository = new MetadataRepository(connectionProvider);
-        this.objectMapper = ObjectMapperFactory.createObjectMapper();
+        this.objectMapper = new ObjectMapper();
         this.cache = new ConcurrentHashMap<>();
         this.cacheEnabled = cacheEnabled;
     }
