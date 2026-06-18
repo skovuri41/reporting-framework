@@ -6,7 +6,7 @@
 CREATE TABLE REPORT_METADATA (
     REPORT_NAME VARCHAR(100) PRIMARY KEY,
     STORED_PROCEDURE VARCHAR(200) NOT NULL,
-    RESULT_CLASS VARCHAR(500) NOT NULL,
+    RESULT_CLASS VARCHAR(500) NULL,  -- Nullable for Spark-based reports
     METADATA_JSON NVARCHAR(MAX) NOT NULL,
     CREATED_DATE DATETIME DEFAULT GETDATE(),
     UPDATED_DATE DATETIME DEFAULT GETDATE()
@@ -108,16 +108,15 @@ CREATE TABLE sales (
 -- Sample Metadata Inserts
 -- ================================================================
 
--- Employee Report Metadata
+-- Employee Report Metadata (Spark-based)
 INSERT INTO REPORT_METADATA (REPORT_NAME, STORED_PROCEDURE, RESULT_CLASS, METADATA_JSON)
 VALUES (
     'employee_report',
     'dbo.usp_GetEmployees',
-    'com.reporting.framework.example.EmployeeReport',
+    NULL,
     '{
         "reportName": "employee_report",
         "storedProcedure": "dbo.usp_GetEmployees",
-        "resultClass": "com.reporting.framework.example.EmployeeReport",
         "inputParameters": [
             {
                 "name": "DepartmentId",
@@ -139,32 +138,23 @@ VALUES (
                 "javaType": "java.lang.Integer"
             }
         ],
-        "resultSetMapping": {
-            "strategy": "EXPLICIT",
-            "columnMappings": [
-                {"column": "employee_id", "field": "employeeId", "required": true},
-                {"column": "first_name", "field": "firstName", "required": true},
-                {"column": "last_name", "field": "lastName", "required": true},
-                {"column": "email", "field": "email", "required": true},
-                {"column": "salary", "field": "salary", "required": true},
-                {"column": "hire_date", "field": "hireDate", "required": true},
-                {"column": "department_id", "field": "departmentId", "required": true}
-            ],
-            "unmappedColumnsStrategy": "IGNORE"
+        "sparkConfig": {
+            "enabled": true,
+            "partitions": 10,
+            "cacheResult": false
         }
     }'
 );
 
--- Sales Report Metadata
+-- Sales Report Metadata (Spark-based)
 INSERT INTO REPORT_METADATA (REPORT_NAME, STORED_PROCEDURE, RESULT_CLASS, METADATA_JSON)
 VALUES (
     'sales_report',
     'dbo.usp_GetMonthlySales',
-    'com.reporting.framework.example.SalesReport',
+    NULL,
     '{
         "reportName": "sales_report",
         "storedProcedure": "dbo.usp_GetMonthlySales",
-        "resultClass": "com.reporting.framework.example.SalesReport",
         "inputParameters": [
             {
                 "name": "Year",
@@ -186,16 +176,10 @@ VALUES (
                 "javaType": "java.math.BigDecimal"
             }
         ],
-        "resultSetMapping": {
-            "strategy": "EXPLICIT",
-            "columnMappings": [
-                {"column": "product_name", "field": "productName", "required": true},
-                {"column": "sales_amount", "field": "salesAmount", "required": true},
-                {"column": "sales_date", "field": "salesDate", "required": true},
-                {"column": "customer_name", "field": "customerName", "required": true},
-                {"column": "region", "field": "region", "required": true}
-            ],
-            "unmappedColumnsStrategy": "IGNORE"
+        "sparkConfig": {
+            "enabled": true,
+            "partitions": 0,
+            "cacheResult": false
         }
     }'
 );
