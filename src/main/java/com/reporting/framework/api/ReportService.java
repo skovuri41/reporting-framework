@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -164,6 +165,98 @@ public class ReportService {
         }
     }
 
+
+    /**
+     * Execute a report dynamically without POJO classes.
+     * Returns a DynamicReportResult that contains rows as List of Maps.
+     * Columns are auto-inferred from ResultSet - no explicit column mappings needed.
+     *
+     * This is a lightweight alternative to the typed execute() method when you:
+     * - Don't want to create POJO classes for each report
+     * - Need dynamic schema handling
+     * - Want to apply transformations (filter, join, groupBy) on results
+     *
+     * @param reportName The name of the report to execute
+     * @param inputParameters Map of input parameter names to values (can be null)
+     * @return DynamicReportResult containing rows as Maps and output parameters
+     */
+    public DynamicReportResult executeDynamic(String reportName, Map<String, Object> inputParameters) {
+        logger.info("Executing report dynamically: {} with {} input parameters",
+                reportName, inputParameters != null ? inputParameters.size() : 0);
+
+        // Load metadata
+        ReportMetadata metadata = metadataLoader.getMetadata(reportName);
+        logger.debug("Loaded metadata for dynamic report: {}", reportName);
+
+        // Execute report dynamically
+        return executeDynamicReport(metadata, inputParameters);
+    }
+
+    /**
+     * Execute a report dynamically with no input parameters.
+     *
+     * @param reportName The name of the report to execute
+     * @return DynamicReportResult containing rows as Maps and output parameters
+     */
+    public DynamicReportResult executeDynamic(String reportName) {
+        return executeDynamic(reportName, Collections.emptyMap());
+    }
+
+    /**
+     * Execute the report dynamically with the given metadata and parameters.
+     */
+    private DynamicReportResult executeDynamicReport(ReportMetadata metadata,
+                                                     Map<String, Object> inputParameters) {
+        String reportName = metadata.getReportName();
+        Connection connection = null;
+        CallableStatement statement = null;
+        ResultSet resultSet = null;
+
+        try {
+            // Execute stored procedure
+            ExecutionResult executionResult = executor.execute(metadata, inputParameters);
+
+            resultSet = executionResult.getResultSet();
+            Map<String, Object> outputParameters = executionResult.getOutputParameters();
+
+            List<Map<String, Object>> rows;
+
+            if (resultSet != null) {
+                // Convert ResultSet to Maps using auto-inferred columns
+                rows = resultSetConverter.convertToMaps(resultSet);
+
+                logger.info("Dynamic report {} executed successfully with {} results",
+                        reportName, rows.size());
+            } else {
+                // No result set (stored procedure may only have output parameters)
+                rows = Collections.emptyList();
+                logger.info("Dynamic report {} executed successfully with no result set", reportName);
+            }
+
+            // Create and return DynamicReportResult
+            return new DynamicReportResult(rows, outputParameters, reportName);
+
+        } catch (Exception e) {
+            logger.error("Failed to execute dynamic report: {}", reportName, e);
+            if (e instanceof ReportExecutionException) {
+                throw (ReportExecutionException) e;
+            }
+            throw new ReportExecutionException(reportName, metadata.getStoredProcedure(),
+                    "Dynamic report execution failed: " + e.getMessage(), e);
+
+        } finally {
+            // Clean up resources
+            if (resultSet != null) {
+                try {
+                    statement = (CallableStatement) resultSet.getStatement();
+                    connection = statement.getConnection();
+                } catch (Exception e) {
+                    logger.warn("Error getting connection/statement from ResultSet", e);
+                }
+            }
+            executor.closeResources(connection, statement, resultSet);
+        }
+    }
 
     /**
      * Invalidate the metadata cache for a specific report.

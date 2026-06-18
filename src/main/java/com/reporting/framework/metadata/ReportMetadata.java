@@ -6,6 +6,7 @@ import com.reporting.framework.exception.MetadataException;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Represents the complete metadata for a report including stored procedure,
@@ -87,8 +88,15 @@ public class ReportMetadata {
             throw new MetadataException(reportName, "Result class cannot be null or empty");
         }
 
-        // Validate result class exists
-        getResultClassType();
+        // Check if this is dynamic execution (resultClass = java.util.Map)
+        // For dynamic execution, we don't need resultClass to exist or column mappings
+        boolean isDynamicExecution = resultClass != null &&
+                (resultClass.equals("java.util.Map") || resultClass.equals(Map.class.getName()));
+
+        // Validate result class exists (skip for dynamic execution)
+        if (!isDynamicExecution) {
+            getResultClassType();
+        }
 
         // Validate input parameters
         for (ParameterMetadata param : inputParameters) {
@@ -112,19 +120,24 @@ public class ReportMetadata {
             }
         }
 
-        // Validate result set mapping
-        if (resultSetMapping.getColumnMappings().isEmpty()) {
-            throw new MetadataException(reportName, "Column mappings cannot be empty");
-        }
+        // Validate result set mapping (only for typed POJO execution)
+        // For dynamic execution (resultClass = java.util.Map), column mappings are optional
 
-        // Validate each column mapping
-        for (ColumnMapping mapping : resultSetMapping.getColumnMappings()) {
-            if (mapping.getColumn() == null || mapping.getColumn().trim().isEmpty()) {
-                throw new MetadataException(reportName, "Column name cannot be null or empty in mapping");
+        if (!isDynamicExecution) {
+            // For typed POJO execution, require column mappings
+            if (resultSetMapping.getColumnMappings().isEmpty()) {
+                throw new MetadataException(reportName, "Column mappings cannot be empty for typed POJO execution");
             }
-            if (mapping.getField() == null || mapping.getField().trim().isEmpty()) {
-                throw new MetadataException(reportName,
-                        "Field name cannot be null or empty in mapping for column: " + mapping.getColumn());
+
+            // Validate each column mapping
+            for (ColumnMapping mapping : resultSetMapping.getColumnMappings()) {
+                if (mapping.getColumn() == null || mapping.getColumn().trim().isEmpty()) {
+                    throw new MetadataException(reportName, "Column name cannot be null or empty in mapping");
+                }
+                if (mapping.getField() == null || mapping.getField().trim().isEmpty()) {
+                    throw new MetadataException(reportName,
+                            "Field name cannot be null or empty in mapping for column: " + mapping.getColumn());
+                }
             }
         }
     }

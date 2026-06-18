@@ -115,6 +115,60 @@ public class ResultSetToMapConverter {
     }
 
     /**
+     * Convert a ResultSet to a List of Maps by auto-inferring all columns.
+     * This method does NOT require explicit column mappings - it automatically
+     * discovers and maps all columns from the ResultSet.
+     *
+     * This is ideal for dynamic reporting where you don't want to maintain
+     * explicit column mappings in metadata.
+     *
+     * @param resultSet The ResultSet to convert
+     * @return List of Maps representing the rows (all columns included)
+     */
+    public List<Map<String, Object>> convertToMaps(ResultSet resultSet) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+
+        try {
+            ResultSetMetaData metaData = resultSet.getMetaData();
+            int columnCount = metaData.getColumnCount();
+
+            // Auto-infer column names and types
+            String[] columnNames = new String[columnCount];
+            int[] sqlTypes = new int[columnCount];
+
+            for (int i = 1; i <= columnCount; i++) {
+                columnNames[i - 1] = metaData.getColumnLabel(i);
+                sqlTypes[i - 1] = metaData.getColumnType(i);
+            }
+
+            logger.debug("Auto-inferred {} columns from ResultSet: {}",
+                    columnCount, Arrays.toString(columnNames));
+
+            // Process each row
+            while (resultSet.next()) {
+                Map<String, Object> row = new HashMap<>();
+
+                for (int i = 1; i <= columnCount; i++) {
+                    String columnName = columnNames[i - 1];
+                    int sqlType = sqlTypes[i - 1];
+                    Object value = getColumnValue(resultSet, i, sqlType);
+                    row.put(columnName, value);
+                }
+
+                rows.add(row);
+            }
+
+            logger.debug("Converted {} rows from ResultSet to Maps (auto-inferred columns)",
+                    rows.size());
+            return rows;
+
+        } catch (SQLException e) {
+            logger.error("Failed to convert ResultSet to Maps (auto-inferred)", e);
+            throw new ReportExecutionException("Failed to convert ResultSet to Maps", e);
+        }
+    }
+
+    /**
      * Get the column value with proper type conversion.
      */
     private Object getColumnValue(ResultSet rs, int columnIndex, int sqlType) throws SQLException {

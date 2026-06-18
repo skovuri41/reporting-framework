@@ -1,6 +1,26 @@
 # Metadata-Driven Java Reporting Framework
 
-A reusable, metadata-driven framework for executing SQL Server stored procedures and mapping results to Java POJOs using Jackson ObjectMapper. No report-specific execution code needed!
+A reusable, metadata-driven framework for executing SQL Server stored procedures and mapping results to Java POJOs or dynamic maps using Jackson ObjectMapper. No report-specific execution code needed!
+
+## 📚 Documentation
+
+- **[APPROACH_COMPARISON.md](APPROACH_COMPARISON.md)** - Compare POJO-based, Lightweight Dynamic, and Spark approaches
+- **[DYNAMIC_REPORTING_GUIDE.md](DYNAMIC_REPORTING_GUIDE.md)** - Complete guide to lightweight dynamic reporting
+- **[CLAUDE.md](CLAUDE.md)** - Architecture and development guide for Claude Code
+
+## 🌟 Three Approaches Available
+
+This repository provides three distinct approaches to meet different needs:
+
+| Approach | Branch | JAR Size | Best For |
+|----------|--------|----------|----------|
+| **POJO-Based** | `main` | ~9MB | Type safety, stable schemas |
+| **Lightweight Dynamic** ⭐ | `lightweight-dynamic` | ~10MB | Flexible, no POJOs, Tomcat/Spring Boot |
+| **Spark-Based** | `spark-impl` | ~300MB | Big data, distributed computing |
+
+**⭐ Recommended:** For most Spring Boot/Tomcat use cases, use `lightweight-dynamic` branch.
+
+See [APPROACH_COMPARISON.md](APPROACH_COMPARISON.md) for detailed comparison and decision guide.
 
 ## Features
 
