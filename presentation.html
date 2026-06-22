@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporting Framework Solution Options - Technical Decision</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @media print {
+            .page-break { page-break-after: always; }
+            .no-print { display: none; }
+        }
+        .code-block {
+            background: #1e293b;
+            color: #e2e8f0;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+
+    <!-- Navigation -->
+    <nav class="bg-white shadow-md sticky top-0 z-50 no-print">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <h1 class="text-xl font-bold text-gray-800">Reporting Framework - Solution Options</h1>
+                <div class="flex gap-4 text-sm">
+                    <a href="#summary" class="text-blue-600 hover:text-blue-800">Summary</a>
+                    <a href="#pojo" class="text-blue-600 hover:text-blue-800">POJO</a>
+                    <a href="#dataset" class="text-blue-600 hover:text-blue-800">Dataset</a>
+                    <a href="#spark" class="text-blue-600 hover:text-blue-800">Spark</a>
+                    <a href="#decision" class="text-blue-600 hover:text-blue-800">Decision</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Title Slide -->
+    <section class="gradient-bg text-white py-24 page-break">
+        <div class="max-w-6xl mx-auto px-6 text-center">
+            <h1 class="text-6xl font-bold mb-6">Reporting Framework</h1>
+            <h2 class="text-4xl mb-8">Solution Options - Technical Decision</h2>
+            <p class="text-2xl mb-12">Audience: Product, Delivery Manager, Tech Leads</p>
+            <div class="bg-white/10 backdrop-blur-sm rounded-lg p-8 inline-block">
+                <p class="text-xl">3 Implementation Approaches | 10 Sections | Data-Driven Analysis</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 1: Executive Summary -->
+    <section id="summary" class="py-16 page-break">
+        <div class="max-w-6xl mx-auto px-6">
+            <h2 class="text-4xl font-bold mb-8 text-gray-800 border-b-4 border-blue-600 pb-4">1. Executive Summary</h2>
+
+            <div class="bg-blue-50 border-l-4 border-blue-600 p-6 mb-8">
+                <p class="text-lg mb-2"><strong>Business Problem:</strong> Metadata-driven reporting framework for SQL Server stored procedures</p>
+                <p class="text-lg mb-2"><strong>Core Requirement:</strong> Add new reports without modifying framework code</p>
+                <p class="text-lg"><strong>Solution Evaluated:</strong> 3 implementation approaches</p>
+            </div>
+
+            <div class="overflow-x-auto mb-8">
+                <table class="min-w-full bg-white border border-gray-300 shadow-md rounded-lg">
+                    <thead class="bg-gray-800 text-white">
+                        <tr>
+                            <th class="px-6 py-4 text-left">Metric</th>
+                            <th class="px-6 py-4 text-left">Main (POJO)</th>
+                            <th class="px-6 py-4 text-left">Dataset-impl</th>
+                            <th class="px-6 py-4 text-left">Spark-SQL</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 font-semibold">Framework Code</td>
+                            <td class="px-6 py-4">~1,200 LOC</td>
+                            <td class="px-6 py-4">~1,871 LOC</td>
+                            <td class="px-6 py-4">~1,400 LOC (est.)</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 font-semibold">Java Files</td>
+                            <td class="px-6 py-4">14 files</td>
+                            <td class="px-6 py-4">20 files</td>
+                            <td class="px-6 py-4">~16 files (est.)</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 font-semibold">Dependencies</td>
+                            <td class="px-6 py-4">Jackson</td>
+                            <td class="px-6 py-4">Jackson</td>
+                            <td class="px-6 py-4">Spark-SQL (local)</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 font-semibold">JAR Size</td>
+                            <td class="px-6 py-4">~8 MB</td>
+                            <td class="px-6 py-4">~12 MB</td>
+                            <td class="px-6 py-4">~25 MB</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50 bg-green-50">
+                            <td class="px-6 py-4 font-semibold">Test Coverage</td>
+                            <td class="px-6 py-4">16 tests ✅</td>
+                            <td class="px-6 py-4">32 tests ✅</td>
+                            <td class="px-6 py-4">TBD</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="bg-yellow-50 border-l-4 border-yellow-600 p-6">
+                <p class="text-xl font-bold text-yellow-800">Decision Needed: Which approach for production deployment?</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 2: Common Foundation -->
+    <section class="py-16 bg-gray-100 page-break">
+        <div class="max-w-6xl mx-auto px-6">
+            <h2 class="text-4xl font-bold mb-8 text-gray-800 border-b-4 border-green-600 pb-4">2. Common Foundation - What Doesn't Change</h2>
+
+            <p class="text-xl mb-6 font-semibold">All 3 approaches share the same core:</p>
+
+            <div class="code-block p-6 mb-8 font-mono text-sm">
+                <pre>┌─────────────────────────────────────────────────┐
+│  Metadata-Driven Configuration (JSON in DB)     │ ← Same for all
+├─────────────────────────────────────────────────┤
+│  StoredProcedureExecutor (CallableStatement)    │ ← Same for all
+├─────────────────────────────────────────────────┤
+│  GenericParameterBinder (Java ↔ SQL types)     │ ← Same for all
+├─────────────────────────────────────────────────┤
+│  Connection Pooling (HikariCP compatible)       │ ← Same for all
+└─────────────────────────────────────────────────┘
+                      ↓
+         [ Only data mapping differs ]</pre>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-2xl font-bold mb-4 text-green-700">Shared Capabilities</h3>
+                <ul class="space-y-2 text-lg">
+                    <li class="flex items-start">
+                        <span class="text-green-600 mr-2">✅</span>
+                        <span>Dynamic parameter binding</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-green-600 mr-2">✅</span>
+                        <span>Output parameters support</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-green-600 mr-2">✅</span>
+                        <span>Metadata caching (thread-safe)</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-green-600 mr-2">✅</span>
+                        <span>Spring Boot integration</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-green-600 mr-2">✅</span>
+                        <span>Zero framework changes to add reports</span>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="mt-8 bg-blue-50 border-l-4 border-blue-600 p-6">
+                <p class="text-lg font-semibold">What differs: How ResultSet data is mapped and transformed</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 3: POJO Approach -->
+    <section id="pojo" class="py-16 page-break">
+        <div class="max-w-6xl mx-auto px-6">
+            <h2 class="text-4xl font-bold mb-8 text-gray-800 border-b-4 border-purple-600 pb-4">3. Option 1 - POJO Approach (Main Branch)</h2>
+
+            <div class="grid md:grid-cols-2 gap-8 mb-8">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-2xl font-bold mb-4 text-purple-700">Key Metrics</h3>
+                    <table class="w-full text-sm">
+                        <tbody class="divide-y divide-gray-200">
+                            <tr>
+                                <td class="py-2 font-semibold">Code per report</td>
+                                <td class="py-2 text-right">40-60 lines</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 font-semibold">Runtime dependencies</td>
+                                <td class="py-2 text-right">3</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 font-semibold">Memory overhead</td>
+                                <td class="py-2 text-right">~200 MB</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 font-semibold">Startup time</td>
+                                <td class="py-2 text-right">&lt;1 second</td>
+                            </tr>
+                            <tr class="bg-green-50">
+                                <td class="py-2 font-semibold">API learning curve</td>
+                                <td class="py-2 text-right text-green-700 font-bold">✅ Zero</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-2xl font-bold mb-4 text-green-700">Strengths</h3>
+                    <ul class="space-y-2">
+                        <li class="flex items-start text-sm">
+                            <span class="text-green-600 mr-2">✅</span>
+                            <span><strong>Compile-time type safety</strong> - Errors caught by compiler</span>
+                        </li>
+                        <li class="flex items-start text-sm">
+                            <span class="text-green-600 mr-2">✅</span>
+                            <span><strong>IDE support</strong> - Autocomplete, refactoring</span>
+                        </li>
+                        <li class="flex items-start text-sm">
+                            <span class="text-green-600 mr-2">✅</span>
+                            <span><strong>Native Java Streams</strong> - No custom API to learn</span>
+                        </li>
+                        <li class="flex items-start text-sm">
+                            <span class="text-green-600 mr-2">✅</span>
+                            <span><strong>Minimal dependencies</strong> - Only Jackson</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="code-block p-6 mb-8">
+                <pre class="text-sm overflow-x-auto"><code>// 1. Define POJO (compile-time type safety)
+public class EmployeeReport {
+    private Integer employeeId;
+    private String firstName;
+    private BigDecimal salary;
+    // getters/setters
+}
+
+// 2. Execute with full type safety
+ReportResult&lt;EmployeeReport&gt; result = service.execute("report", params);
+List&lt;EmployeeReport&gt; employees = result.getResults(); // Fully typed!
+
+// 3. Transform using native Java Streams API
+List&lt;EmployeeReport&gt; highEarners = employees.stream()
+    .filter(emp -> emp.getSalary().compareTo(valueOf(80000)) > 0)
+    .sorted(Comparator.comparing(EmployeeReport::getSalary).reversed())
+    .limit(10)
+    .collect(Collectors.toList());</code></pre>
+            </div>
+
+            <div class="bg-yellow-50 border-l-4 border-yellow-600 p-6">
+                <h3 class="text-xl font-bold mb-3 text-yellow-800">Considerations</h3>
+                <ul class="space-y-2">
+                    <li class="flex items-start">
+                        <span class="text-yellow-600 mr-2">⚠️</span>
+                        <span><strong>POJO maintenance</strong> - Need to create/update Java class per report (~20-30 lines)</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-yellow-600 mr-2">⚠️</span>
+                        <span><strong>Metadata verbosity</strong> - Explicit column mappings required</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-yellow-600 mr-2">⚠️</span>
+                        <span><strong>Schema changes</strong> - Require POJO updates and recompilation</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 4: Dataset-impl -->
+    <section id="dataset" class="py-16 bg-gray-100 page-break">
+        <div class="max-w-6xl mx-auto px-6">
+            <h2 class="text-4xl font-bold mb-8 text-gray-800 border-b-4 border-blue-600 pb-4">4. Option 2 - Dual Mode (Dataset-impl Branch)</h2>
+
+            <div class="grid md:grid-cols-2 gap-8 mb-8">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-2xl font-bold mb-4 text-blue-700">Key Metrics</h3>
+                    <table class="w-full text-sm">
+                        <tbody class="divide-y divide-gray-200">
+                            <tr>
+                                <td class="py-2 font-semibold">Code per report</td>
+                                <td class="py-2 text-right">10-15 lines</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 font-semibold">Runtime dependencies</td>
+                                <td class="py-2 text-right">3</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 font-semibold">Memory overhead</td>
+                                <td class="py-2 text-right">~220 MB</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 font-semibold">Startup time</td>
+                                <td class="py-2 text-right">&lt;1 second</td>
+                            </tr>
+                            <tr class="bg-yellow-50">
+                                <td class="py-2 font-semibold">API learning curve</td>
+                                <td class="py-2 text-right text-yellow-700 font-bold">⚠️ Medium</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="bg-orange-50 border-l-4 border-orange-600 p-6">
+                    <h3 class="text-xl font-bold mb-3 text-orange-800">Custom API Components</h3>
+                    <ul class="space-y-1 text-sm">
+                        <li><code class="bg-orange-100 px-2 py-1 rounded">DataRow</code> - Type-safe wrapper (12 methods)</li>
+                        <li><code class="bg-orange-100 px-2 py-1 rounded">DataSet</code> - Immutable collection (15 methods)</li>
+                        <li><code class="bg-orange-100 px-2 py-1 rounded">DataQuery</code> - Fluent DSL builder (18 methods)</li>
+                        <li><code class="bg-orange-100 px-2 py-1 rounded">DataOperations</code> - Complex ops (11 methods)</li>
+                        <li class="font-bold text-orange-700 mt-2">Total: 56 custom methods to learn/maintain</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="code-block p-6 mb-8">
+                <pre class="text-sm overflow-x-auto"><code>// NO POJO needed for dynamic mode!
+
+// Execute dynamically
+DataSet employees = service.executeDynamic("employees", params);
+
+// Transform with custom fluent DSL
+DataSet result = DataQuery.from(employees)
+    .filter(row -> row.getBigDecimal("salary").compareTo(valueOf(80000)) > 0)
+    .select("name", "salary", "hire_date")
+    .orderBy("salary").desc()
+    .limit(10)
+    .execute();
+
+// Type-safe accessors (no casting)
+for (DataRow row : result.getRows()) {
+    String name = row.getString("name");              // Type-safe
+    BigDecimal salary = row.getBigDecimal("salary");  // No casting
+}</code></pre>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-xl font-bold mb-3 text-green-700">Strengths</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex items-start">
+                            <span class="text-green-600 mr-2">✅</span>
+                            <span><strong>Dual modes</strong> - POJO when needed, Dynamic for flexibility</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-green-600 mr-2">✅</span>
+                            <span><strong>No POJOs</strong> (dynamic mode) - Less boilerplate</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-green-600 mr-2">✅</span>
+                            <span><strong>Built-in operations</strong> - Joins, unions, pivots</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="bg-red-50 border-l-4 border-red-600 p-6">
+                    <h3 class="text-xl font-bold mb-3 text-red-800">Considerations</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex items-start">
+                            <span class="text-red-600 mr-2">⚠️</span>
+                            <span><strong>Custom API maintenance</strong> - 56 methods across 4 classes</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-red-600 mr-2">⚠️</span>
+                            <span><strong>Runtime type safety</strong> only - Column name typos at runtime</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-red-600 mr-2">⚠️</span>
+                            <span><strong>Framework lock-in</strong> - Proprietary API</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 5: Spark SQL -->
+    <section id="spark" class="py-16 page-break">
+        <div class="max-w-6xl mx-auto px-6">
+            <h2 class="text-4xl font-bold mb-8 text-gray-800 border-b-4 border-red-600 pb-4">5. Option 3 - Spark SQL (Spark-impl Branch)</h2>
+
+            <div class="bg-blue-100 border-l-4 border-blue-700 p-6 mb-8">
+                <p class="text-lg font-bold text-blue-900">Important: This uses spark-sql library only for SQL operations in local JVM, NOT distributed Spark cluster.</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-8 mb-8">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-2xl font-bold mb-4 text-red-700">Key Metrics</h3>
+                    <table class="w-full text-sm">
+                        <tbody class="divide-y divide-gray-200">
+                            <tr>
+                                <td class="py-2 font-semibold">Code per report</td>
+                                <td class="py-2 text-right font-bold text-green-600">5-8 lines</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 font-semibold">Runtime dependencies</td>
+                                <td class="py-2 text-right">4</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 font-semibold">JAR size</td>
+                                <td class="py-2 text-right">~25 MB</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 font-semibold">Memory overhead</td>
+                                <td class="py-2 text-right">~400 MB</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 font-semibold">Startup time</td>
+                                <td class="py-2 text-right">2-3 seconds</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 font-semibold">Execution mode</td>
+                                <td class="py-2 text-right font-bold">Local JVM</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-2xl font-bold mb-4 text-green-700">Strengths</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex items-start">
+                            <span class="text-green-600 mr-2">✅</span>
+                            <span><strong>Zero POJOs</strong> - No class definitions needed</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-green-600 mr-2">✅</span>
+                            <span><strong>Auto-inferred schema</strong> - No column mappings</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-green-600 mr-2">✅</span>
+                            <span><strong>Industry-standard API</strong> - Widely known</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-green-600 mr-2">✅</span>
+                            <span><strong>Rich SQL operations</strong> - Windows, UDFs</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="code-block p-6 mb-8">
+                <pre class="text-sm overflow-x-auto"><code>// Setup Spark (local JVM only, no cluster)
+SparkConfig config = SparkConfig.builder()
+    .master("local[*]")  // Local execution in Spring Boot JVM
+    .build();
+
+// NO POJO, NO column mappings!
+SparkReportResult result = service.execute("employees", params);
+
+// Transform using Spark SQL (industry-standard API)
+Dataset&lt;Row&gt; summary = result.getDataset()
+    .filter("salary > 80000")
+    .groupBy("department_id")
+    .agg(
+        avg("salary").as("avg_salary"),
+        max("salary").as("max_salary"),
+        count("*").as("employee_count")
+    )
+    .orderBy(desc("avg_salary"));
+
+// JSON output for REST APIs
+String json = result.toJSON();</code></pre>
+            </div>
+
+            <div class="bg-yellow-50 border-l-4 border-yellow-600 p-6">
+                <h3 class="text-xl font-bold mb-3 text-yellow-800">Considerations</h3>
+                <ul class="space-y-2">
+                    <li class="flex items-start">
+                        <span class="text-yellow-600 mr-2">⚠️</span>
+                        <span><strong>SparkSession overhead</strong> - ~200 MB memory, 2-3s startup (one-time per app)</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-yellow-600 mr-2">⚠️</span>
+                        <span><strong>Additional JAR</strong> - +17 MB vs POJO (but still local JVM only)</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-yellow-600 mr-2">⚠️</span>
+                        <span><strong>Runtime type safety</strong> - Column references via strings</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 6: Development Effort -->
+    <section class="py-16 bg-gray-100 page-break">
+        <div class="max-w-6xl mx-auto px-6">
+            <h2 class="text-4xl font-bold mb-8 text-gray-800 border-b-4 border-indigo-600 pb-4">6. Development Effort Comparison</h2>
+
+            <p class="text-xl mb-6 font-semibold">Scenario: Employee report filtered by salary, grouped by department</p>
+
+            <div class="grid md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-purple-600">
+                    <h3 class="text-xl font-bold mb-3 text-purple-700">POJO Approach</h3>
+                    <p class="text-3xl font-bold text-purple-600 mb-2">55 lines</p>
+                    <p class="text-sm text-gray-600">30 lines POJO + 15 lines metadata + 10 lines code</p>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-blue-600">
+                    <h3 class="text-xl font-bold mb-3 text-blue-700">Dataset-impl</h3>
+                    <p class="text-3xl font-bold text-blue-600 mb-2">12 lines</p>
+                    <p class="text-sm text-gray-600 mb-2">2 lines metadata + 10 lines code</p>
+                    <p class="text-sm font-bold text-green-600">78% reduction ↓</p>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-red-600">
+                    <h3 class="text-xl font-bold mb-3 text-red-700">Spark-SQL</h3>
+                    <p class="text-3xl font-bold text-red-600 mb-2">7 lines</p>
+                    <p class="text-sm text-gray-600 mb-2">No POJO, no mappings + 7 lines code</p>
+                    <p class="text-sm font-bold text-green-600">87% reduction ↓</p>
+                </div>
+            </div>
+
+            <div class="bg-green-50 border-l-4 border-green-600 p-6">
+                <p class="text-xl font-bold text-green-800">Code Reduction: POJO (55 lines) → Dataset-impl (12 lines, 78% less) → Spark-SQL (7 lines, 87% less)</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 7: Transformation Capabilities -->
+    <section class="py-16 page-break">
+        <div class="max-w-6xl mx-auto px-6">
+            <h2 class="text-4xl font-bold mb-8 text-gray-800 border-b-4 border-teal-600 pb-4">7. Transformation Capabilities Comparison</h2>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white border border-gray-300 shadow-md rounded-lg">
+                    <thead class="bg-gray-800 text-white">
+                        <tr>
+                            <th class="px-6 py-4 text-left">Operation</th>
+                            <th class="px-6 py-4 text-left">POJO (Java Streams)</th>
+                            <th class="px-6 py-4 text-left">Dataset-impl (Custom DSL)</th>
+                            <th class="px-6 py-4 text-left">Spark-SQL</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-3 font-semibold">Filter</td>
+                            <td class="px-6 py-3">✅ <code class="text-sm">stream().filter()</code></td>
+                            <td class="px-6 py-3">✅ <code class="text-sm">.filter(row -> ...)</code></td>
+                            <td class="px-6 py-3">✅ <code class="text-sm">.filter("col > val")</code></td>
+                        </tr>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-3 font-semibold">Map/Select</td>
+                            <td class="px-6 py-3">✅ <code class="text-sm">stream().map()</code></td>
+                            <td class="px-6 py-3">✅ <code class="text-sm">.select("col1")</code></td>
+                            <td class="px-6 py-3">✅ <code class="text-sm">.select("col1")</code></td>
+                        </tr>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-3 font-semibold">Sort</td>
+                            <td class="px-6 py-3">✅ <code class="text-sm">sorted(Comparator)</code></td>
+                            <td class="px-6 py-3">✅ <code class="text-sm">.orderBy("col").desc()</code></td>
+                            <td class="px-6 py-3">✅ <code class="text-sm">.orderBy(desc("col"))</code></td>
+                        </tr>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-3 font-semibold">GroupBy + Agg</td>
+                            <td class="px-6 py-3">⚠️ Manual groupingBy() + reducers</td>
+                            <td class="px-6 py-3">✅ <code class="text-sm">.groupBy().avg()</code></td>
+                            <td class="px-6 py-3">✅ <code class="text-sm">.groupBy().agg(avg())</code></td>
+                        </tr>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-3 font-semibold">Joins</td>
+                            <td class="px-6 py-3">⚠️ Manual Map-based joins</td>
+                            <td class="px-6 py-3">✅ <code class="text-sm">DataOperations.join()</code></td>
+                            <td class="px-6 py-3">✅ <code class="text-sm">.join(other, "key")</code></td>
+                        </tr>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-3 font-semibold">Window Functions</td>
+                            <td class="px-6 py-3 bg-red-50">❌ Complex manual code</td>
+                            <td class="px-6 py-3 bg-red-50">❌ Not supported</td>
+                            <td class="px-6 py-3 bg-green-50">✅ Built-in Window.partitionBy()</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-3 font-semibold">Pivot</td>
+                            <td class="px-6 py-3 bg-red-50">❌ Very complex</td>
+                            <td class="px-6 py-3 bg-green-50">✅ DataOperations.pivot()</td>
+                            <td class="px-6 py-3 bg-green-50">✅ .pivot("column")</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-8 grid md:grid-cols-3 gap-6">
+                <div class="bg-purple-50 border-l-4 border-purple-600 p-4">
+                    <p class="font-semibold">POJO: Native Java Streams excellent for simple ops, verbose for complex</p>
+                </div>
+                <div class="bg-blue-50 border-l-4 border-blue-600 p-4">
+                    <p class="font-semibold">Dataset-impl: Custom DSL covers common ops, requires maintenance</p>
+                </div>
+                <div class="bg-red-50 border-l-4 border-red-600 p-4">
+                    <p class="font-semibold">Spark-SQL: Industry-standard API, richest features, well-documented</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 8: Resource Analysis -->
+    <section class="py-16 bg-gray-100 page-break">
+        <div class="max-w-6xl mx-auto px-6">
+            <h2 class="text-4xl font-bold mb-8 text-gray-800 border-b-4 border-orange-600 pb-4">8. Resource & Dependency Analysis</h2>
+
+            <h3 class="text-2xl font-bold mb-4">JAR Dependencies (Production)</h3>
+            <div class="overflow-x-auto mb-8">
+                <table class="min-w-full bg-white border border-gray-300 shadow-md rounded-lg text-sm">
+                    <thead class="bg-gray-800 text-white">
+                        <tr>
+                            <th class="px-4 py-3 text-left">Dependency</th>
+                            <th class="px-4 py-3 text-right">POJO</th>
+                            <th class="px-4 py-3 text-right">Dataset-impl</th>
+                            <th class="px-4 py-3 text-right">Spark-SQL</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <tr><td class="px-4 py-2">jackson-databind</td><td class="px-4 py-2 text-right">1.5 MB</td><td class="px-4 py-2 text-right">1.5 MB</td><td class="px-4 py-2 text-right">1.5 MB</td></tr>
+                        <tr><td class="px-4 py-2">slf4j-api</td><td class="px-4 py-2 text-right">0.1 MB</td><td class="px-4 py-2 text-right">0.1 MB</td><td class="px-4 py-2 text-right">0.1 MB</td></tr>
+                        <tr><td class="px-4 py-2">mssql-jdbc</td><td class="px-4 py-2 text-right">1.2 MB</td><td class="px-4 py-2 text-right">1.2 MB</td><td class="px-4 py-2 text-right">1.2 MB</td></tr>
+                        <tr><td class="px-4 py-2">Framework core</td><td class="px-4 py-2 text-right">0.2 MB</td><td class="px-4 py-2 text-right">0.4 MB</td><td class="px-4 py-2 text-right">0.3 MB</td></tr>
+                        <tr><td class="px-4 py-2">spark-sql (local)</td><td class="px-4 py-2 text-right">-</td><td class="px-4 py-2 text-right">-</td><td class="px-4 py-2 text-right font-bold text-orange-600">17 MB</td></tr>
+                        <tr class="bg-gray-100 font-bold"><td class="px-4 py-3">Total JAR size</td><td class="px-4 py-3 text-right text-green-600">~3.6 MB</td><td class="px-4 py-3 text-right text-green-600">~3.8 MB</td><td class="px-4 py-3 text-right text-orange-600">~20.7 MB</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3 class="text-2xl font-bold mb-4">Runtime Memory (Spring Boot on Tomcat)</h3>
+            <div class="grid md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h4 class="text-xl font-bold mb-3 text-purple-700">POJO</h4>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between"><span>Base JVM</span><span>256 MB</span></div>
+                        <div class="flex justify-between"><span>Spring Boot</span><span>150 MB</span></div>
+                        <div class="flex justify-between"><span>Framework</span><span>10 MB</span></div>
+                        <div class="flex justify-between font-bold text-lg border-t pt-2 text-green-600"><span>Total</span><span>512 MB</span></div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h4 class="text-xl font-bold mb-3 text-blue-700">Dataset-impl</h4>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between"><span>Base JVM</span><span>256 MB</span></div>
+                        <div class="flex justify-between"><span>Spring Boot</span><span>150 MB</span></div>
+                        <div class="flex justify-between"><span>Framework</span><span>20 MB</span></div>
+                        <div class="flex justify-between font-bold text-lg border-t pt-2 text-green-600"><span>Total</span><span>512 MB</span></div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h4 class="text-xl font-bold mb-3 text-red-700">Spark-SQL</h4>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between"><span>Base JVM</span><span>256 MB</span></div>
+                        <div class="flex justify-between"><span>Spring Boot</span><span>150 MB</span></div>
+                        <div class="flex justify-between"><span>Framework</span><span>30 MB</span></div>
+                        <div class="flex justify-between text-orange-600"><span>SparkSession</span><span>+150 MB</span></div>
+                        <div class="flex justify-between font-bold text-lg border-t pt-2 text-orange-600"><span>Total</span><span>768 MB</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-blue-50 border-l-4 border-blue-600 p-6">
+                <p class="font-semibold">Note: Spark-SQL runs in local JVM mode within Spring Boot/Tomcat - no cluster, no distributed processing.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 9: Decision Matrix -->
+    <section id="decision" class="py-16 page-break">
+        <div class="max-w-6xl mx-auto px-6">
+            <h2 class="text-4xl font-bold mb-8 text-gray-800 border-b-4 border-pink-600 pb-4">9. Decision Matrix</h2>
+
+            <h3 class="text-2xl font-bold mb-4">Scenario-Based Recommendations</h3>
+            <div class="overflow-x-auto mb-8">
+                <table class="min-w-full bg-white border border-gray-300 shadow-md rounded-lg text-sm">
+                    <thead class="bg-gray-800 text-white">
+                        <tr>
+                            <th class="px-6 py-3 text-left">Scenario</th>
+                            <th class="px-6 py-3 text-left">Recommended</th>
+                            <th class="px-6 py-3 text-left">Rationale</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-3">Stable schema, small team</td>
+                            <td class="px-6 py-3 font-bold text-purple-600">✅ POJO</td>
+                            <td class="px-6 py-3">Compile-time safety, zero learning curve, native Java Streams</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-3">Changing schema frequently</td>
+                            <td class="px-6 py-3 font-bold text-red-600">✅ Spark-SQL</td>
+                            <td class="px-6 py-3">No POJOs to update, auto-inferred schema, 87% less code</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-3">Complex analytics (pivots, windows)</td>
+                            <td class="px-6 py-3 font-bold text-red-600">✅ Spark-SQL</td>
+                            <td class="px-6 py-3">Rich SQL operations, query optimization, industry-standard API</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-3">Minimal dependencies critical</td>
+                            <td class="px-6 py-3 font-bold text-purple-600">✅ POJO</td>
+                            <td class="px-6 py-3">Only 3.6 MB total, no additional libraries</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-3">Low memory environment</td>
+                            <td class="px-6 py-3 font-bold text-purple-600">✅ POJO or Dataset-impl</td>
+                            <td class="px-6 py-3">512 MB vs 768 MB for Spark-SQL</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-3">REST API JSON output</td>
+                            <td class="px-6 py-3 font-bold text-red-600">✅ Spark-SQL</td>
+                            <td class="px-6 py-3">Direct .toJSON() conversion</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-3">Long-term maintenance concern</td>
+                            <td class="px-6 py-3 font-bold text-purple-600">⚠️ POJO or Spark-SQL</td>
+                            <td class="px-6 py-3">Standard APIs vs custom framework maintenance</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3 class="text-2xl font-bold mb-4">Risk Assessment</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white border border-gray-300 shadow-md rounded-lg text-sm">
+                    <thead class="bg-gray-800 text-white">
+                        <tr>
+                            <th class="px-6 py-3 text-left">Risk</th>
+                            <th class="px-6 py-3 text-left">POJO</th>
+                            <th class="px-6 py-3 text-left">Dataset-impl</th>
+                            <th class="px-6 py-3 text-left">Spark-SQL</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <tr>
+                            <td class="px-6 py-3 font-semibold">Code maintenance</td>
+                            <td class="px-6 py-3 text-yellow-600">⚠️ High (many POJOs)</td>
+                            <td class="px-6 py-3 text-green-600">✅ Low (no POJOs)</td>
+                            <td class="px-6 py-3 text-green-600">✅ Very Low</td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-3 font-semibold">Runtime errors</td>
+                            <td class="px-6 py-3 text-green-600">✅ Low (compile-time)</td>
+                            <td class="px-6 py-3 text-yellow-600">⚠️ Medium (strings)</td>
+                            <td class="px-6 py-3 text-yellow-600">⚠️ Medium (strings)</td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-3 font-semibold">API maintenance</td>
+                            <td class="px-6 py-3 text-green-600">✅ None (Java stdlib)</td>
+                            <td class="px-6 py-3 text-red-600">⚠️ High (56 methods)</td>
+                            <td class="px-6 py-3 text-green-600">✅ None (Spark maintained)</td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-3 font-semibold">Team onboarding</td>
+                            <td class="px-6 py-3 text-green-600">✅ Fast (&lt;1 day)</td>
+                            <td class="px-6 py-3 text-yellow-600">⚠️ Medium (2-3 days)</td>
+                            <td class="px-6 py-3 text-yellow-600">⚠️ Medium (2-3 days)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 10: Next Steps -->
+    <section class="py-16 bg-gray-100 page-break">
+        <div class="max-w-6xl mx-auto px-6">
+            <h2 class="text-4xl font-bold mb-8 text-gray-800 border-b-4 border-green-600 pb-4">10. Recommendation & Next Steps</h2>
+
+            <h3 class="text-2xl font-bold mb-4">Data-Driven Summary</h3>
+            <div class="overflow-x-auto mb-8">
+                <table class="min-w-full bg-white border border-gray-300 shadow-md rounded-lg">
+                    <thead class="bg-gray-800 text-white">
+                        <tr>
+                            <th class="px-6 py-4 text-left">Metric</th>
+                            <th class="px-6 py-4 text-left">POJO</th>
+                            <th class="px-6 py-4 text-left">Dataset-impl</th>
+                            <th class="px-6 py-4 text-left">Spark-SQL</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <tr><td class="px-6 py-3 font-semibold">Code per report</td><td class="px-6 py-3">55 lines</td><td class="px-6 py-3 text-blue-600 font-bold">12 lines (-78%)</td><td class="px-6 py-3 text-green-600 font-bold">7 lines (-87%)</td></tr>
+                        <tr><td class="px-6 py-3 font-semibold">JAR size</td><td class="px-6 py-3 text-green-600 font-bold">3.6 MB</td><td class="px-6 py-3">3.8 MB</td><td class="px-6 py-3">20.7 MB</td></tr>
+                        <tr><td class="px-6 py-3 font-semibold">Memory</td><td class="px-6 py-3 text-green-600 font-bold">512 MB</td><td class="px-6 py-3 text-green-600 font-bold">512 MB</td><td class="px-6 py-3">768 MB</td></tr>
+                        <tr><td class="px-6 py-3 font-semibold">Startup</td><td class="px-6 py-3 text-green-600 font-bold">&lt;1s</td><td class="px-6 py-3 text-green-600 font-bold">&lt;1s</td><td class="px-6 py-3">2-3s</td></tr>
+                        <tr><td class="px-6 py-3 font-semibold">API maintenance</td><td class="px-6 py-3 text-green-600 font-bold">✅ Zero</td><td class="px-6 py-3 text-red-600">⚠️ 56 methods</td><td class="px-6 py-3 text-green-600 font-bold">✅ Zero</td></tr>
+                        <tr><td class="px-6 py-3 font-semibold">Type safety</td><td class="px-6 py-3 text-green-600 font-bold">✅ Compile-time</td><td class="px-6 py-3">⚠️ Runtime</td><td class="px-6 py-3">⚠️ Runtime</td></tr>
+                        <tr><td class="px-6 py-3 font-semibold">Transformations</td><td class="px-6 py-3 text-green-600 font-bold">✅ Java Streams</td><td class="px-6 py-3">✅ Custom DSL</td><td class="px-6 py-3 text-green-600 font-bold">✅ Spark SQL</td></tr>
+                        <tr><td class="px-6 py-3 font-semibold">Learning curve</td><td class="px-6 py-3 text-green-600 font-bold">✅ None</td><td class="px-6 py-3">⚠️ Custom API</td><td class="px-6 py-3">⚠️ Spark API</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="bg-gradient-to-r from-purple-100 to-red-100 border-l-4 border-purple-600 p-6 mb-8">
+                <h3 class="text-2xl font-bold mb-3">Primary Trade-Off</h3>
+                <div class="text-center">
+                    <p class="text-xl font-mono">Compile-Time Safety ←────────────→ Development Speed</p>
+                    <p class="text-lg text-gray-600">(POJO with Java Streams) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (Spark-SQL, -87% code)</p>
+                    <p class="text-center mt-4 font-semibold text-blue-700">Dataset-impl (Middle ground, custom API)</p>
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-purple-600">
+                    <h3 class="text-xl font-bold mb-3 text-purple-700">Choose POJO if</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li>✅ Compile-time type safety is critical</li>
+                        <li>✅ Team wants native Java Streams</li>
+                        <li>✅ Minimal dependencies required</li>
+                        <li>✅ Willing to accept POJO maintenance</li>
+                    </ul>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-red-600">
+                    <h3 class="text-xl font-bold mb-3 text-red-700">Choose Spark-SQL if</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li>✅ Development speed is priority (87% less code)</li>
+                        <li>✅ Schema changes frequently</li>
+                        <li>✅ Complex analytics needed (pivots, windows)</li>
+                        <li>✅ 17 MB + 256 MB memory acceptable</li>
+                    </ul>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-blue-600">
+                    <h3 class="text-xl font-bold mb-3 text-blue-700">Choose Dataset-impl if</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li>⚠️ Want both modes (POJO + Dynamic)</li>
+                        <li>⚠️ Willing to maintain custom API (56 methods)</li>
+                        <li>⚠️ Don't need distributed processing</li>
+                        <li>⚠️ Team committed to learning proprietary framework</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="bg-blue-50 border-l-4 border-blue-600 p-6">
+                <h3 class="text-xl font-bold mb-3 text-blue-800">Suggested Next Steps</h3>
+                <ol class="list-decimal list-inside space-y-2">
+                    <li><strong>Evaluate POC criteria:</strong> Expected report count, schema change frequency, transformation complexity, memory/JAR constraints</li>
+                    <li><strong>Run benchmark:</strong> Implement 2-3 representative reports in each approach, measure development time and runtime performance</li>
+                    <li><strong>Team skill assessment:</strong> Java Streams proficiency? Spark SQL familiarity? Appetite for learning custom API?</li>
+                    <li><strong>Make decision by:</strong> [Date]</li>
+                </ol>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-8 no-print">
+        <div class="max-w-6xl mx-auto px-6 text-center">
+            <p class="text-lg mb-2">Reporting Framework - Solution Options</p>
+            <p class="text-sm text-gray-400">For questions or clarifications, please reach out to the development team</p>
+        </div>
+    </footer>
+
+</body>
+</html>
