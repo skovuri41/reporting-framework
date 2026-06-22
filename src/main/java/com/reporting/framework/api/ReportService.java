@@ -1,6 +1,8 @@
 package com.reporting.framework.api;
 
 import com.reporting.framework.connection.ConnectionProvider;
+import com.reporting.framework.data.DataRow;
+import com.reporting.framework.data.DataSet;
 import com.reporting.framework.exception.ReportExecutionException;
 import com.reporting.framework.executor.ExecutionResult;
 import com.reporting.framework.executor.StoredProcedureExecutor;
@@ -18,6 +20,7 @@ import java.sql.ResultSet;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Main entry point for executing reports.
@@ -168,7 +171,7 @@ public class ReportService {
 
     /**
      * Execute a report dynamically without POJO classes.
-     * Returns a DynamicReportResult that contains rows as List of Maps.
+     * Returns a DataSet that contains rows as List of DataRows.
      * Columns are auto-inferred from ResultSet - no explicit column mappings needed.
      *
      * This is a lightweight alternative to the typed execute() method when you:
@@ -178,9 +181,9 @@ public class ReportService {
      *
      * @param reportName The name of the report to execute
      * @param inputParameters Map of input parameter names to values (can be null)
-     * @return DynamicReportResult containing rows as Maps and output parameters
+     * @return DataSet containing rows as DataRows and output parameters
      */
-    public DynamicReportResult executeDynamic(String reportName, Map<String, Object> inputParameters) {
+    public DataSet executeDynamic(String reportName, Map<String, Object> inputParameters) {
         logger.info("Executing report dynamically: {} with {} input parameters",
                 reportName, inputParameters != null ? inputParameters.size() : 0);
 
@@ -196,17 +199,17 @@ public class ReportService {
      * Execute a report dynamically with no input parameters.
      *
      * @param reportName The name of the report to execute
-     * @return DynamicReportResult containing rows as Maps and output parameters
+     * @return DataSet containing rows as DataRows and output parameters
      */
-    public DynamicReportResult executeDynamic(String reportName) {
+    public DataSet executeDynamic(String reportName) {
         return executeDynamic(reportName, Collections.emptyMap());
     }
 
     /**
      * Execute the report dynamically with the given metadata and parameters.
      */
-    private DynamicReportResult executeDynamicReport(ReportMetadata metadata,
-                                                     Map<String, Object> inputParameters) {
+    private DataSet executeDynamicReport(ReportMetadata metadata,
+                                         Map<String, Object> inputParameters) {
         String reportName = metadata.getReportName();
         Connection connection = null;
         CallableStatement statement = null;
@@ -219,11 +222,16 @@ public class ReportService {
             resultSet = executionResult.getResultSet();
             Map<String, Object> outputParameters = executionResult.getOutputParameters();
 
-            List<Map<String, Object>> rows;
+            List<DataRow> rows;
 
             if (resultSet != null) {
                 // Convert ResultSet to Maps using auto-inferred columns
-                rows = resultSetConverter.convertToMaps(resultSet);
+                List<Map<String, Object>> maps = resultSetConverter.convertToMaps(resultSet);
+
+                // Convert Maps to DataRows
+                rows = maps.stream()
+                        .map(DataRow::of)
+                        .collect(Collectors.toList());
 
                 logger.info("Dynamic report {} executed successfully with {} results",
                         reportName, rows.size());
@@ -233,8 +241,8 @@ public class ReportService {
                 logger.info("Dynamic report {} executed successfully with no result set", reportName);
             }
 
-            // Create and return DynamicReportResult
-            return new DynamicReportResult(rows, outputParameters, reportName);
+            // Create and return DataSet
+            return new DataSet(rows, outputParameters, reportName);
 
         } catch (Exception e) {
             logger.error("Failed to execute dynamic report: {}", reportName, e);

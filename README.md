@@ -1,205 +1,342 @@
 # Metadata-Driven Java Reporting Framework
 
-A reusable, metadata-driven framework for executing SQL Server stored procedures and mapping results to Java POJOs or dynamic maps using Jackson ObjectMapper. No report-specific execution code needed!
+A lightweight, metadata-driven framework for executing SQL Server stored procedures with dynamic data transformations. Features a fluent DSL for filtering, joining, aggregating, and pivoting data without requiring POJOs.
 
-## 📚 Documentation
+## 🌟 Features
 
-- **[APPROACH_COMPARISON.md](APPROACH_COMPARISON.md)** - Compare POJO-based, Lightweight Dynamic, and Spark approaches
-- **[DYNAMIC_REPORTING_GUIDE.md](DYNAMIC_REPORTING_GUIDE.md)** - Complete guide to lightweight dynamic reporting
-- **[CLAUDE.md](CLAUDE.md)** - Architecture and development guide for Claude Code
-
-## 🌟 Three Approaches Available
-
-This repository provides three distinct approaches to meet different needs:
-
-| Approach | Branch | JAR Size | Best For |
-|----------|--------|----------|----------|
-| **POJO-Based** | `main` | ~9MB | Type safety, stable schemas |
-| **Lightweight Dynamic** ⭐ | `lightweight-dynamic` | ~10MB | Flexible, no POJOs, Tomcat/Spring Boot |
-| **Spark-Based** | `spark-impl` | ~300MB | Big data, distributed computing |
-
-**⭐ Recommended:** For most Spring Boot/Tomcat use cases, use `lightweight-dynamic` branch.
-
-See [APPROACH_COMPARISON.md](APPROACH_COMPARISON.md) for detailed comparison and decision guide.
-
-## Features
-
-- **Open/Closed Principle**: Add new reports without modifying framework code
-- **Metadata-Driven**: Report configuration stored in database, fetched at runtime
-- **Jackson-Based Mapping**: Efficient ResultSet → POJO conversion using ObjectMapper
-- **Generic Parameter Binding**: Dynamic parameter mapping with type safety
-- **Flexible Input**: Map-based or POJO-based input parameters
-- **Naming Strategy Support**: Automatic snake_case ↔ camelCase conversion
-- **Output Parameters**: Full support for stored procedure output parameters
+- **Zero-Code Reports**: Add new reports via metadata only - no framework code changes
+- **Fluent DSL**: Type-safe, chainable transformations (filter, select, join, groupBy, pivot)
+- **Dynamic or Typed**: Use POJOs for type safety or dynamic DataSets for flexibility
+- **Explicit Mapping**: Clear column-to-field mappings for self-documenting code
+- **Type-Safe Access**: `DataRow` provides type-safe getters (`getString()`, `getInt()`, `getBigDecimal()`)
+- **Data Operations**: Built-in joins, unions, pivots, aggregations, running totals
 - **Metadata Caching**: In-memory caching for performance
-- **Type-Safe**: Java 8 date/time types, BigDecimal, and more
+- **Lightweight**: ~10MB JAR, no Spark dependencies
 
-## Architecture
+## 🚀 Quick Start
 
-```
-Client → ReportService → MetadataLoader → Database (Metadata)
-                      ↓
-         StoredProcedureExecutor → CallableStatement
-                      ↓
-         ResultSetToMapConverter → List<Map>
-                      ↓
-         JacksonPojoMapper → List<POJO>
-```
-
-## Quick Start
-
-### 1. Setup Database Schema
-
-Execute the metadata schema:
+### 1. Database Setup
 
 ```sql
 CREATE TABLE REPORT_METADATA (
     REPORT_NAME VARCHAR(100) PRIMARY KEY,
     STORED_PROCEDURE VARCHAR(200) NOT NULL,
     RESULT_CLASS VARCHAR(500) NOT NULL,
-    METADATA_JSON NVARCHAR(MAX) NOT NULL,
-    CREATED_DATE DATETIME DEFAULT GETDATE(),
-    UPDATED_DATE DATETIME DEFAULT GETDATE()
+    METADATA_JSON NVARCHAR(MAX) NOT NULL
 );
 ```
 
-### 2. Create a Stored Procedure
+### 2. Create Stored Procedure
 
 ```sql
 CREATE PROCEDURE dbo.usp_GetEmployees
     @DepartmentId INT,
-    @StartDate DATE = NULL,
-    @TotalCount INT OUTPUT
+    @MinSalary DECIMAL(18,2) = NULL
 AS
 BEGIN
-    SELECT employee_id, first_name, last_name, salary, hire_date
+    SELECT employee_id, name, department_id, salary, hire_date
     FROM employees
     WHERE department_id = @DepartmentId
-        AND (@StartDate IS NULL OR hire_date >= @StartDate);
-
-    SELECT @TotalCount = COUNT(*) FROM employees WHERE department_id = @DepartmentId;
+        AND (@MinSalary IS NULL OR salary >= @MinSalary);
 END;
 ```
 
-### 3. Create a POJO
-
-```java
-public class EmployeeReport {
-    private Integer employeeId;
-    private String firstName;
-    private String lastName;
-    private BigDecimal salary;
-    private LocalDate hireDate;
-    // getters and setters
-}
-```
-
-### 4. Insert Metadata
+### 3. Insert Metadata
 
 ```sql
 INSERT INTO REPORT_METADATA (REPORT_NAME, STORED_PROCEDURE, RESULT_CLASS, METADATA_JSON)
-VALUES ('employee_report', 'dbo.usp_GetEmployees',
-        'com.example.EmployeeReport',
-        '{
-          "reportName": "employee_report",
-          "storedProcedure": "dbo.usp_GetEmployees",
-          "resultClass": "com.example.EmployeeReport",
-          "inputParameters": [
-            {"name": "DepartmentId", "sqlType": "INTEGER", "javaType": "java.lang.Integer", "required": true},
-            {"name": "StartDate", "sqlType": "DATE", "javaType": "java.time.LocalDate", "required": false}
-          ],
-          "outputParameters": [
-            {"name": "TotalCount", "sqlType": "INTEGER", "javaType": "java.lang.Integer"}
-          ],
-          "resultSetMapping": {
-            "strategy": "EXPLICIT",
-            "columnMappings": [
-              {"column": "employee_id", "field": "employeeId", "required": true},
-              {"column": "first_name", "field": "firstName", "required": true},
-              {"column": "last_name", "field": "lastName", "required": true},
-              {"column": "email", "field": "email", "required": true},
-              {"column": "salary", "field": "salary", "required": true},
-              {"column": "hire_date", "field": "hireDate", "required": true}
-            ],
-            "unmappedColumnsStrategy": "IGNORE"
-          }
-        }');
+VALUES ('employees', 'dbo.usp_GetEmployees', 'java.util.Map',
+'{
+  "reportName": "employees",
+  "storedProcedure": "dbo.usp_GetEmployees",
+  "resultClass": "java.util.Map",
+  "inputParameters": [
+    {"name": "DepartmentId", "sqlType": "INTEGER", "javaType": "java.lang.Integer", "required": true},
+    {"name": "MinSalary", "sqlType": "DECIMAL", "javaType": "java.math.BigDecimal", "required": false}
+  ]
+}');
 ```
 
-### 5. Execute the Report
+### 4. Execute with Transformations
 
-**Option 1: Map-based parameters**
 ```java
 // Setup
 DataSource dataSource = ... // HikariCP or other
 ConnectionProvider provider = new DataSourceConnectionProvider(dataSource);
 ReportService reportService = new ReportService(provider);
 
-// Execute
-Map<String, Object> params = new HashMap<>();
-params.put("DepartmentId", 10);
-params.put("StartDate", LocalDate.of(2020, 1, 1));
+// Execute and transform with fluent DSL
+DataSet result = reportService.executeDynamic("employees",
+    Map.of("DepartmentId", 10, "MinSalary", 80000));
 
-ReportResult<EmployeeReport> result = reportService.execute("employee_report", params);
+DataSet processed = DataQuery.from(result)
+    .filter(row -> row.getBigDecimal("salary").compareTo(BigDecimal.valueOf(100000)) < 0)
+    .select("name", "salary", "hire_date")
+    .orderBy("salary").desc()
+    .limit(10)
+    .execute();
 
-// Access results
-List<EmployeeReport> employees = result.getResults();
-Integer totalCount = (Integer) result.getOutputParameter("TotalCount");
+// Access results with type-safe getters
+for (DataRow row : processed.getRows()) {
+    String name = row.getString("name");
+    BigDecimal salary = row.getBigDecimal("salary");
+    LocalDate hireDate = row.getLocalDate("hire_date");
+    System.out.println(name + ": $" + salary);
+}
 ```
 
-**Option 2: POJO-based parameters** (type-safe)
+## 📖 Core Components
+
+### DataRow - Type-Safe Row Wrapper
+
+Immutable wrapper over `Map<String, Object>` with type-safe accessors.
+
 ```java
-// Create input POJO
-public class EmployeeReportRequest {
-    private Integer departmentId;
-    private LocalDate startDate;
+DataRow row = DataRow.builder()
+    .put("employee_id", 1)
+    .put("name", "Alice")
+    .put("salary", BigDecimal.valueOf(85000))
+    .build();
+
+// Type-safe access
+int id = row.getInt("employee_id");              // No casting needed
+String name = row.getString("name");
+BigDecimal salary = row.getBigDecimal("salary");
+
+// Null-safe with defaults
+String dept = row.getString("department", "Unknown");
+
+// Immutable transformations
+DataRow withBonus = row.with("bonus", salary.multiply(BigDecimal.valueOf(0.1)));
+DataRow subset = row.select("name", "salary");
+```
+
+### DataSet - Collection of Rows
+
+Collection of `DataRow` objects with metadata.
+
+```java
+DataSet dataSet = reportService.executeDynamic("employees");
+
+System.out.println("Report: " + dataSet.getReportName());
+System.out.println("Rows: " + dataSet.count());
+
+DataRow first = dataSet.first();
+DataRow last = dataSet.last();
+String json = dataSet.toJSON();
+```
+
+### DataQuery - Fluent DSL
+
+Chainable transformations for readable data processing.
+
+```java
+DataSet result = DataQuery.from(dataSet)
+    // Multiple filters
+    .filter(row -> row.getInt("department_id") == 10)
+    .filter(row -> row.getBigDecimal("salary").compareTo(BigDecimal.valueOf(80000)) >= 0)
+
+    // Add computed columns
+    .withColumn("bonus", row -> row.getBigDecimal("salary").multiply(BigDecimal.valueOf(0.1)))
+    .withColumn("full_name", row -> row.getString("first_name") + " " + row.getString("last_name"))
+
+    // Select specific columns
+    .select("name", "salary", "bonus")
+
+    // Sort and limit
+    .orderBy("salary").desc()
+    .limit(10)
+
+    .execute();
+```
+
+**Aggregations:**
+
+```java
+DataSet summary = DataQuery.from(dataSet)
+    .groupBy("department_id")
+    .avg("salary")
+    .count("employee_id")
+    .sum("revenue")
+    .min("hire_date")
+    .max("salary")
+    .execute();
+
+// Access aggregated results
+DataRow dept = summary.first();
+Double avgSalary = dept.getDouble("salary_avg");
+Long employeeCount = dept.getLong("employee_id_count");
+```
+
+### DataOperations - Complex Operations
+
+Static utility methods for joins, unions, pivots.
+
+**Joins:**
+
+```java
+DataSet employees = reportService.executeDynamic("employees");
+DataSet departments = reportService.executeDynamic("departments");
+
+// Inner join
+DataSet joined = DataOperations.innerJoin(
+    employees, departments, "department_id", "department_id");
+
+// Left join
+DataSet leftJoined = DataOperations.leftJoin(
+    employees, departments, "department_id", "department_id");
+
+// Other join types: rightJoin, fullOuterJoin, crossJoin
+```
+
+**Unions:**
+
+```java
+DataSet combined = DataOperations.union(dataset1, dataset2);
+DataSet distinct = DataOperations.unionDistinct(dataset1, dataset2);
+```
+
+**Pivot:**
+
+```java
+// Pivot sales data from rows to columns
+List<DataRow> pivoted = DataOperations.pivot(
+    salesData,
+    "product",      // Grouping column (rows)
+    "month",        // Pivot column (becomes column names)
+    "amount"        // Value column (cell values)
+);
+
+// Result: product | Jan | Feb | Mar
+//         Widget  | 100 | 150 | 200
+//         Gadget  | 250 | 300 | 350
+```
+
+**Running Totals:**
+
+```java
+DataSet withRunningTotal = DataOperations.withRunningTotal(
+    salesData, "revenue", "running_total");
+```
+
+## 💡 Usage Patterns
+
+### Complex Workflow Example
+
+```java
+// Fetch data
+DataSet employees = reportService.executeDynamic("employees");
+DataSet departments = reportService.executeDynamic("departments");
+
+// Transform: Filter → Join → Select → Sort
+DataSet highEarners = DataQuery.from(employees)
+    .filter(row -> row.getBigDecimal("salary").compareTo(BigDecimal.valueOf(85000)) >= 0)
+    .execute();
+
+DataSet enriched = DataOperations.innerJoin(
+    highEarners, departments, "department_id", "department_id");
+
+DataSet result = DataQuery.from(enriched)
+    .select("name", "salary", "department_name")
+    .orderBy("salary").desc()
+    .limit(20)
+    .execute();
+
+// Export to JSON
+String json = result.toPrettyJSON();
+```
+
+### Department Summary Report
+
+```java
+DataSet employees = reportService.executeDynamic("employees");
+
+// Group by department with multiple aggregations
+DataSet summary = DataQuery.from(employees)
+    .groupBy("department_id")
+    .avg("salary")
+    .count("employee_id")
+    .max("salary")
+    .min("salary")
+    .execute();
+
+// Print summary
+for (DataRow dept : summary.getRows()) {
+    System.out.printf("Dept %d: %d employees, Avg Salary: $%.2f%n",
+        dept.getInt("department_id"),
+        dept.getLong("employee_id_count"),
+        dept.getDouble("salary_avg"));
+}
+```
+
+### Using POJOs (Type-Safe Alternative)
+
+For stable schemas, you can still use POJOs for compile-time type safety:
+
+```java
+// Create POJO
+public class EmployeeReport {
+    private Integer employeeId;
+    private String name;
+    private BigDecimal salary;
+    private LocalDate hireDate;
     // getters/setters
 }
 
-// Execute with POJO
-EmployeeReportRequest request = new EmployeeReportRequest();
-request.setDepartmentId(10);
-request.setStartDate(LocalDate.of(2020, 1, 1));
+// Metadata with explicit mappings
+{
+  "resultClass": "com.example.EmployeeReport",
+  "resultSetMapping": {
+    "strategy": "EXPLICIT",
+    "columnMappings": [
+      {"column": "employee_id", "field": "employeeId", "required": true},
+      {"column": "name", "field": "name", "required": true},
+      {"column": "salary", "field": "salary", "required": true},
+      {"column": "hire_date", "field": "hireDate", "required": true}
+    ]
+  }
+}
 
-ReportResult<EmployeeReport> result = reportService.execute("employee_report", request);
+// Execute with type safety
+ReportResult<EmployeeReport> result = reportService.execute("employee_report", params);
+List<EmployeeReport> employees = result.getResults();
 ```
 
-## Adding a New Report
+## 🔧 Configuration
 
-Follow these 3 steps (no framework code changes!):
-
-1. **Create stored procedure** in SQL Server
-2. **Create POJO** class with matching fields
-3. **Insert metadata** into REPORT_METADATA table
-
-That's it! The framework handles everything else.
-
-## Metadata JSON Structure
+### Metadata JSON Structure
 
 ```json
 {
   "reportName": "report_name",
   "storedProcedure": "dbo.usp_ProcedureName",
-  "resultClass": "com.example.ResultPojo",
+  "resultClass": "java.util.Map",
   "inputParameters": [
     {
       "name": "ParameterName",
-      "sqlType": "INTEGER|VARCHAR|DATE|DECIMAL|...",
+      "sqlType": "INTEGER|VARCHAR|DATE|DECIMAL",
       "javaType": "java.lang.Integer|java.lang.String|...",
-      "required": true|false
+      "required": true
     }
   ],
   "outputParameters": [
     {
-      "name": "OutputParamName",
-      "sqlType": "INTEGER|DECIMAL|...",
-      "javaType": "java.lang.Integer|java.math.BigDecimal|..."
+      "name": "OutputParam",
+      "sqlType": "INTEGER",
+      "javaType": "java.lang.Integer"
     }
-  ],
+  ]
+}
+```
+
+For POJO mapping, add explicit column mappings:
+
+```json
+{
+  "resultClass": "com.example.EmployeeReport",
   "resultSetMapping": {
     "strategy": "EXPLICIT",
     "columnMappings": [
-      {"column": "database_column", "field": "javaField", "required": true},
       {"column": "employee_id", "field": "employeeId", "required": true},
       {"column": "first_name", "field": "firstName", "required": true}
     ],
@@ -208,7 +345,7 @@ That's it! The framework handles everything else.
 }
 ```
 
-## Supported SQL Types
+### Supported SQL Types
 
 | SQL Type | Java Type |
 |----------|-----------|
@@ -218,35 +355,10 @@ That's it! The framework handles everything else.
 | VARCHAR, NVARCHAR | java.lang.String |
 | DATE | java.time.LocalDate |
 | DATETIME, TIMESTAMP | java.time.LocalDateTime |
+| TIME | java.time.LocalTime |
 | BIT, BOOLEAN | java.lang.Boolean |
-| FLOAT, REAL | java.lang.Float |
-| DOUBLE | java.lang.Double |
 
-## Column Mapping
-
-The framework uses **explicit column-to-field mappings** for clarity and self-documentation:
-
-```json
-"resultSetMapping": {
-  "strategy": "EXPLICIT",
-  "columnMappings": [
-    {"column": "employee_id", "field": "employeeId", "required": true},
-    {"column": "first_name", "field": "firstName", "required": true},
-    {"column": "hire_date", "field": "hireDate", "required": true}
-  ]
-}
-```
-
-**Benefits:**
-- Self-documenting - Clear which DB column maps to which field
-- No assumptions - Doesn't rely on naming conventions
-- Better validation - Framework validates required columns exist
-- Flexible - Handles any column naming scheme
-- Selective mapping - Only map the columns you need
-
-## Metadata Caching
-
-Metadata is cached in memory for performance:
+### Metadata Caching
 
 ```java
 // Clear entire cache
@@ -259,9 +371,36 @@ reportService.invalidateMetadataCache("employee_report");
 int size = reportService.getMetadataCacheSize();
 ```
 
-## Maven Dependency
+## 🏗️ Architecture
 
-Add to your `pom.xml`:
+```
+Client → ReportService
+            ↓
+         MetadataLoader (cached) → Database
+            ↓
+         StoredProcedureExecutor → CallableStatement
+            ↓
+         ResultSetToMapConverter → List<Map<String, Object>>
+            ↓
+         DataRow.of() → List<DataRow>
+            ↓
+         DataSet
+```
+
+**For POJO mapping:**
+```
+List<Map<String, Object>> → JacksonPojoMapper → List<POJO>
+```
+
+## 🎯 Design Principles
+
+- **Open/Closed**: Add reports without modifying framework code
+- **Separation of Concerns**: DataSet (storage), DataQuery (transformations), DataOperations (complex ops)
+- **Immutability**: All data structures are immutable
+- **Fluent API**: Readable, chainable method calls
+- **Type Safety**: DataRow provides type-safe accessors
+
+## 📦 Maven Dependency
 
 ```xml
 <dependency>
@@ -271,53 +410,28 @@ Add to your `pom.xml`:
 </dependency>
 ```
 
-## Requirements
+## 🔍 Testing
 
-- Java 17+
-- SQL Server (or H2 with SQL Server mode for testing)
-- Jackson 2.17+
-- SLF4J for logging
-
-## Testing
-
-Run integration tests:
-
+Run tests:
 ```bash
 mvn test
 ```
 
-Integration tests use H2 in-memory database with SQL Server compatibility mode.
+The framework includes:
+- **Unit tests**: DataSetTest (21 tests), DataOperationsTest (11 tests)
+- **Integration tests**: Full workflow tests with H2 database
 
-## Architecture Highlights
+## 📋 Requirements
 
-### Layered Design
-- **API Layer**: `ReportService` - main entry point
-- **Execution Layer**: `StoredProcedureExecutor` - handles CallableStatement
-- **Mapping Layer**: Jackson-based converters (ResultSet → Map → POJO)
-- **Configuration Layer**: `MetadataLoader` with caching
-- **Connection Layer**: `ConnectionProvider` abstraction
+- Java 17+
+- SQL Server (or H2 for testing)
+- Jackson 2.17+
+- SLF4J for logging
 
-### Key Components
-
-- **ReportService**: Main API for executing reports
-- **MetadataLoader**: Loads and caches metadata from database
-- **StoredProcedureExecutor**: Executes stored procedures with dynamic parameter binding
-- **GenericParameterBinder**: Maps Java types to SQL types
-- **ResultSetToMapConverter**: Converts ResultSet to List<Map>
-- **JacksonPojoMapper**: Converts Map to POJO using `ObjectMapper.convertValue()`
-- **PojoToParameterConverter**: Converts input POJO to Map
-
-### Design Patterns
-
-- **Open/Closed Principle**: Closed for modification, open for extension
-- **Strategy Pattern**: Pluggable mapping strategies
-- **Factory Pattern**: ObjectMapperFactory for configured instances
-- **Template Method**: Common execution flow with extensible steps
-
-## License
+## 📝 License
 
 MIT License
 
-## Contributing
+## 🤝 Contributing
 
-Contributions welcome! Please submit a pull request or open an issue.
+Contributions welcome! Submit pull requests or open issues.

@@ -1,9 +1,11 @@
 package com.reporting.framework.integration;
 
-import com.reporting.framework.api.DynamicReportResult;
 import com.reporting.framework.api.ReportService;
 import com.reporting.framework.connection.SimpleConnectionProvider;
-import com.reporting.framework.transform.ReportTransformer;
+import com.reporting.framework.data.DataOperations;
+import com.reporting.framework.data.DataQuery;
+import com.reporting.framework.data.DataRow;
+import com.reporting.framework.data.DataSet;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -143,13 +145,13 @@ class DynamicReportingIntegrationTest {
 
     @Test
     void testBasicDynamicExecution() {
-        DynamicReportResult result = reportService.executeDynamic("employees");
+        DataSet result = reportService.executeDynamic("employees");
 
         assertThat(result.count()).isEqualTo(5);
         assertThat(result.isEmpty()).isFalse();
 
-        Map<String, Object> firstRow = result.first();
-        assertThat(firstRow).containsKeys("employee_id", "name", "department_id", "salary");
+        DataRow firstRow = result.first();
+        assertThat(firstRow.keys()).contains("EMPLOYEE_ID", "NAME", "DEPARTMENT_ID", "SALARY");
     }
 
     @Test
@@ -157,122 +159,126 @@ class DynamicReportingIntegrationTest {
         Map<String, Object> params = new HashMap<>();
         params.put("minSalary", 85000);
 
-        DynamicReportResult result = reportService.executeDynamic("high_earners", params);
+        DataSet result = reportService.executeDynamic("high_earners", params);
 
         assertThat(result.count()).isEqualTo(3); // Bob (90k), Charlie (85k), David (95k)
 
         // Verify all returned employees have salary >= 85000
-        for (Map<String, Object> row : result.getRows()) {
-            BigDecimal salary = (BigDecimal) row.get("SALARY");
+        for (DataRow row : result.getRows()) {
+            BigDecimal salary = row.getBigDecimal("SALARY");
             assertThat(salary.compareTo(BigDecimal.valueOf(85000))).isGreaterThanOrEqualTo(0);
         }
     }
 
     @Test
     void testFilterTransformation() {
-        DynamicReportResult allEmployees = reportService.executeDynamic("employees");
+        DataSet allEmployees = reportService.executeDynamic("employees");
 
         // Filter for Engineering department (dept_id = 10)
-        DynamicReportResult engineers = allEmployees.filter(row ->
-                ((Integer) row.get("DEPARTMENT_ID")) == 10
-        );
+        DataSet engineers = DataQuery.from(allEmployees)
+                .filter(row -> row.getInt("DEPARTMENT_ID") == 10)
+                .execute();
 
         assertThat(engineers.count()).isEqualTo(3); // Alice, Charlie, Eve
     }
 
     @Test
     void testSelectTransformation() {
-        DynamicReportResult allEmployees = reportService.executeDynamic("employees");
+        DataSet allEmployees = reportService.executeDynamic("employees");
 
         // Select only name and salary columns
-        DynamicReportResult namesSalaries = allEmployees.select("NAME", "SALARY");
+        DataSet namesSalaries = DataQuery.from(allEmployees)
+                .select("NAME", "SALARY")
+                .execute();
 
         assertThat(namesSalaries.count()).isEqualTo(5);
 
-        Map<String, Object> firstRow = namesSalaries.first();
-        assertThat(firstRow).containsOnlyKeys("NAME", "SALARY");
+        DataRow firstRow = namesSalaries.first();
+        assertThat(firstRow.keys()).containsOnly("NAME", "SALARY");
     }
 
     @Test
     void testGroupByWithAggregations() {
-        DynamicReportResult employees = reportService.executeDynamic("employees");
+        DataSet employees = reportService.executeDynamic("employees");
 
         // Group by department and calculate average salary and count
-        Map<String, DynamicReportResult.AggregationFunction> aggregations = new HashMap<>();
-        aggregations.put("SALARY", DynamicReportResult.AggregationFunction.AVG);
-        aggregations.put("EMPLOYEE_ID", DynamicReportResult.AggregationFunction.COUNT);
+        DataSet summary = DataQuery.from(employees)
+                .groupBy("DEPARTMENT_ID")
+                .avg("SALARY")
+                .count("EMPLOYEE_ID")
+                .execute();
 
-        Map<Object, Map<String, Object>> summary = employees.groupByWithAggregations(
-                "DEPARTMENT_ID", aggregations);
+        assertThat(summary.count()).isEqualTo(2); // Engineering and Sales
 
-        assertThat(summary).hasSize(2); // Engineering and Sales
+        // Find the engineering and sales rows
+        DataRow engineering = summary.getRows().stream()
+                .filter(row -> row.getInt("DEPARTMENT_ID") == 10)
+                .findFirst().orElseThrow();
+
+        DataRow sales = summary.getRows().stream()
+                .filter(row -> row.getInt("DEPARTMENT_ID") == 20)
+                .findFirst().orElseThrow();
 
         // Engineering: Alice (80k), Charlie (85k), Eve (82k) = avg 82.33k
-        Map<String, Object> engineering = summary.get(10);
-        assertThat(engineering).containsEntry("EMPLOYEE_ID_count", 3L);
-        assertThat((Double) engineering.get("SALARY_avg"))
-                .isCloseTo(82333.33, within(10.0));
+        assertThat(engineering.getLong("EMPLOYEE_ID_count")).isEqualTo(3L);
+        assertThat(engineering.getDouble("SALARY_avg")).isCloseTo(82333.33, within(10.0));
 
         // Sales: Bob (90k), David (95k) = avg 92.5k
-        Map<String, Object> sales = summary.get(20);
-        assertThat(sales).containsEntry("EMPLOYEE_ID_count", 2L);
-        assertThat((Double) sales.get("SALARY_avg"))
-                .isCloseTo(92500.0, within(10.0));
+        assertThat(sales.getLong("EMPLOYEE_ID_count")).isEqualTo(2L);
+        assertThat(sales.getDouble("SALARY_avg")).isCloseTo(92500.0, within(10.0));
     }
 
     @Test
     void testInnerJoin() {
-        DynamicReportResult employees = reportService.executeDynamic("employees");
-        DynamicReportResult departments = reportService.executeDynamic("departments");
+        DataSet employees = reportService.executeDynamic("employees");
+        DataSet departments = reportService.executeDynamic("departments");
 
         // Join employees with departments
-        DynamicReportResult joined = ReportTransformer.innerJoin(
+        DataSet joined = DataOperations.innerJoin(
                 employees, departments, "DEPARTMENT_ID", "DEPARTMENT_ID");
 
         assertThat(joined.count()).isEqualTo(5);
 
         // Verify joined data contains both employee and department info
-        Map<String, Object> firstRow = joined.first();
-        assertThat(firstRow).containsKeys("NAME", "SALARY", "DEPARTMENT_NAME");
+        DataRow firstRow = joined.first();
+        assertThat(firstRow.keys()).contains("NAME", "SALARY", "DEPARTMENT_NAME");
     }
 
     @Test
     void testComplexWorkflow() {
-        // Complex workflow: Filter -> Join -> Aggregate
-        DynamicReportResult employees = reportService.executeDynamic("employees");
-        DynamicReportResult departments = reportService.executeDynamic("departments");
+        // Complex workflow: Filter -> Join -> Select -> Sort (demonstrating fluent DSL)
+        DataSet employees = reportService.executeDynamic("employees");
+        DataSet departments = reportService.executeDynamic("departments");
 
         // Step 1: Filter high earners (>= 85k)
-        DynamicReportResult highEarners = employees.filter(row -> {
-            BigDecimal salary = (BigDecimal) row.get("SALARY");
-            return salary.compareTo(BigDecimal.valueOf(85000)) >= 0;
-        });
+        DataSet highEarners = DataQuery.from(employees)
+                .filter(row -> row.getBigDecimal("SALARY").compareTo(BigDecimal.valueOf(85000)) >= 0)
+                .execute();
 
         assertThat(highEarners.count()).isEqualTo(3); // Bob, Charlie, David
 
         // Step 2: Join with departments
-        DynamicReportResult joined = ReportTransformer.innerJoin(
+        DataSet joined = DataOperations.innerJoin(
                 highEarners, departments, "DEPARTMENT_ID", "DEPARTMENT_ID");
 
         assertThat(joined.count()).isEqualTo(3);
 
-        // Step 3: Select specific columns
-        DynamicReportResult final_result = joined.select(
-                "NAME", "SALARY", "DEPARTMENT_NAME");
-
-        // Step 4: Sort by salary descending
-        DynamicReportResult sorted = final_result.orderBy("SALARY", false);
+        // Step 3 & 4: Select specific columns and sort by salary descending (chained)
+        DataSet sorted = DataQuery.from(joined)
+                .select("NAME", "SALARY", "DEPARTMENT_NAME")
+                .orderBy("SALARY").desc()
+                .execute();
 
         // Verify results
-        List<Map<String, Object>> rows = sorted.getRows();
-        assertThat(rows.get(0).get("NAME")).isEqualTo("David");  // 95k
-        assertThat(rows.get(1).get("NAME")).isEqualTo("Bob");    // 90k
-        assertThat(rows.get(2).get("NAME")).isEqualTo("Charlie"); // 85k
+        List<DataRow> rows = sorted.getRows();
+        assertThat(rows.get(0).getString("NAME")).isEqualTo("David");  // 95k
+        assertThat(rows.get(1).getString("NAME")).isEqualTo("Bob");    // 90k
+        assertThat(rows.get(2).getString("NAME")).isEqualTo("Charlie"); // 85k
     }
 
     @Test
     void testJSONOutput() {
-        DynamicReportResult result = reportService.executeDynamic("departments");
+        DataSet result = reportService.executeDynamic("departments");
 
         String json = result.toJSON();
 
@@ -284,21 +290,20 @@ class DynamicReportingIntegrationTest {
 
     @Test
     void testWithComputedColumn() {
-        DynamicReportResult employees = reportService.executeDynamic("employees");
+        DataSet employees = reportService.executeDynamic("employees");
 
         // Add a bonus column (10% of salary)
-        DynamicReportResult withBonus = employees.withColumn("BONUS", row -> {
-            BigDecimal salary = (BigDecimal) row.get("SALARY");
-            return salary.multiply(BigDecimal.valueOf(0.1));
-        });
+        DataSet withBonus = DataQuery.from(employees)
+                .withColumn("BONUS", row -> row.getBigDecimal("SALARY").multiply(BigDecimal.valueOf(0.1)))
+                .execute();
 
         assertThat(withBonus.count()).isEqualTo(5);
 
-        Map<String, Object> firstRow = withBonus.first();
-        assertThat(firstRow).containsKey("BONUS");
+        DataRow firstRow = withBonus.first();
+        assertThat(firstRow.has("BONUS")).isTrue();
 
-        BigDecimal salary = (BigDecimal) firstRow.get("SALARY");
-        BigDecimal bonus = (BigDecimal) firstRow.get("BONUS");
+        BigDecimal salary = firstRow.getBigDecimal("SALARY");
+        BigDecimal bonus = firstRow.getBigDecimal("BONUS");
         assertThat(bonus).isEqualTo(salary.multiply(BigDecimal.valueOf(0.1)));
     }
 }
