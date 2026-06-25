@@ -115,41 +115,53 @@ public class ResultSetToMapConverter {
     }
 
     /**
-     * Convert a ResultSet to a List of Maps by auto-inferring all columns.
-     * This method does NOT require explicit column mappings - it automatically
-     * discovers and maps all columns from the ResultSet.
+     * Convert a ResultSet to a List of Maps by auto-inferring all columns
+     * with a specific naming strategy.
      *
-     * This is ideal for dynamic reporting where you don't want to maintain
-     * explicit column mappings in metadata.
+     * This method applies naming conventions to transform database column names:
+     * - CAMEL_CASE: "EMPLOYEE_ID" -> "employeeId"
+     * - SNAKE_CASE: "EmployeeID" -> "employee_id"
+     * - PASCAL_CASE: "employee_id" -> "EmployeeId"
+     * - NONE: Keep original column names
      *
      * @param resultSet The ResultSet to convert
-     * @return List of Maps representing the rows (all columns included)
+     * @param namingStrategy The naming strategy to apply to column names
+     * @return List of Maps with transformed column names
      */
-    public List<Map<String, Object>> convertToMaps(ResultSet resultSet) {
+    public List<Map<String, Object>> convertToMaps(ResultSet resultSet, NamingStrategy namingStrategy) {
+        if (namingStrategy == null) {
+            namingStrategy = NamingStrategy.NONE;
+        }
+
         List<Map<String, Object>> rows = new ArrayList<>();
 
         try {
             ResultSetMetaData metaData = resultSet.getMetaData();
             int columnCount = metaData.getColumnCount();
 
-            // Auto-infer column names and types
-            String[] columnNames = new String[columnCount];
+            // Auto-infer column names and apply naming strategy
+            String[] originalColumnNames = new String[columnCount];
+            String[] transformedColumnNames = new String[columnCount];
             int[] sqlTypes = new int[columnCount];
 
             for (int i = 1; i <= columnCount; i++) {
-                columnNames[i - 1] = metaData.getColumnLabel(i);
+                String originalName = metaData.getColumnLabel(i);
+                originalColumnNames[i - 1] = originalName;
+                transformedColumnNames[i - 1] = namingStrategy.apply(originalName);
                 sqlTypes[i - 1] = metaData.getColumnType(i);
             }
 
-            logger.debug("Auto-inferred {} columns from ResultSet: {}",
-                    columnCount, Arrays.toString(columnNames));
+            logger.debug("Auto-inferred {} columns with naming strategy {}: {} -> {}",
+                    columnCount, namingStrategy,
+                    Arrays.toString(originalColumnNames),
+                    Arrays.toString(transformedColumnNames));
 
             // Process each row
             while (resultSet.next()) {
                 Map<String, Object> row = new HashMap<>();
 
                 for (int i = 1; i <= columnCount; i++) {
-                    String columnName = columnNames[i - 1];
+                    String columnName = transformedColumnNames[i - 1];
                     int sqlType = sqlTypes[i - 1];
                     Object value = getColumnValue(resultSet, i, sqlType);
                     row.put(columnName, value);
@@ -158,14 +170,31 @@ public class ResultSetToMapConverter {
                 rows.add(row);
             }
 
-            logger.debug("Converted {} rows from ResultSet to Maps (auto-inferred columns)",
-                    rows.size());
+            logger.debug("Converted {} rows from ResultSet to Maps with naming strategy {}",
+                    rows.size(), namingStrategy);
             return rows;
 
         } catch (SQLException e) {
-            logger.error("Failed to convert ResultSet to Maps (auto-inferred)", e);
+            logger.error("Failed to convert ResultSet to Maps with naming strategy", e);
             throw new ReportExecutionException("Failed to convert ResultSet to Maps", e);
         }
+    }
+
+    /**
+     * Convert a ResultSet to a List of Maps by auto-inferring all columns.
+     * This method does NOT require explicit column mappings - it automatically
+     * discovers and maps all columns from the ResultSet.
+     *
+     * Column names are kept as-is from the database (typically UPPER_SNAKE_CASE).
+     *
+     * This is ideal for dynamic reporting where you don't want to maintain
+     * explicit column mappings in metadata.
+     *
+     * @param resultSet The ResultSet to convert
+     * @return List of Maps representing the rows (all columns included)
+     */
+    public List<Map<String, Object>> convertToMaps(ResultSet resultSet) {
+        return convertToMaps(resultSet, NamingStrategy.NONE);
     }
 
     /**
