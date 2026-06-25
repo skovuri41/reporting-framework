@@ -149,6 +149,30 @@ class FullWorkflowIntegrationTest {
      *
      * Business scenario: Find all high-earning employees (>= 85000) with their department
      * information, ordered by salary descending.
+     *
+     * Expected JSON Output:
+     * [
+     *   {
+     *     "NAME": "David Lee",
+     *     "SALARY": 95000.00,
+     *     "DEPARTMENT_NAME": "Sales"
+     *   },
+     *   {
+     *     "NAME": "Bob Smith",
+     *     "SALARY": 90000.00,
+     *     "DEPARTMENT_NAME": "Sales"
+     *   },
+     *   {
+     *     "NAME": "Grace Davis",
+     *     "SALARY": 88000.00,
+     *     "DEPARTMENT_NAME": "Sales"
+     *   },
+     *   {
+     *     "NAME": "Charlie Brown",
+     *     "SALARY": 85000.00,
+     *     "DEPARTMENT_NAME": "Engineering"
+     *   }
+     * ]
      */
     @Test
     void testEmployeeSalaryAnalysis() throws Exception {
@@ -202,6 +226,25 @@ class FullWorkflowIntegrationTest {
      * Test 2: Aggregation workflow with groupBy.
      *
      * Business scenario: Calculate salary statistics (average, sum, count) per department.
+     *
+     * Expected JSON Output:
+     * [
+     *   {
+     *     "DEPARTMENT_NAME": "Engineering",
+     *     "SALARY_sum": 247000.00,
+     *     "EMPLOYEE_ID_count": 3
+     *   },
+     *   {
+     *     "DEPARTMENT_NAME": "Sales",
+     *     "SALARY_sum": 273000.00,
+     *     "EMPLOYEE_ID_count": 3
+     *   },
+     *   {
+     *     "DEPARTMENT_NAME": "Marketing",
+     *     "SALARY_sum": 70000.00,
+     *     "EMPLOYEE_ID_count": 1
+     *   }
+     * ]
      */
     @Test
     void testDepartmentSalaryAggregation() throws Exception {
@@ -266,6 +309,22 @@ class FullWorkflowIntegrationTest {
      *
      * Business scenario: Calculate total sales per employee in the Sales department,
      * ordered by performance.
+     *
+     * Expected JSON Output:
+     * [
+     *   {
+     *     "NAME": "David Lee",
+     *     "SALE_AMOUNT_sum": 83000.00
+     *   },
+     *   {
+     *     "NAME": "Bob Smith",
+     *     "SALE_AMOUNT_sum": 55000.00
+     *   },
+     *   {
+     *     "NAME": "Grace Davis",
+     *     "SALE_AMOUNT_sum": 42000.00
+     *   }
+     * ]
      */
     @Test
     void testSalesPerformanceAnalysis() throws Exception {
@@ -334,6 +393,62 @@ class FullWorkflowIntegrationTest {
      *
      * Business scenario: Full employee analysis combining all data sources with computed
      * columns, multiple joins, filtering, and pretty JSON output.
+     *
+     * Computed Columns:
+     * - ANNUAL_BONUS = SALARY * 10%
+     * - SALES_COMMISSION = SALE_AMOUNT_sum * 2% (or 0 if no sales)
+     * - TOTAL_COMPENSATION = SALARY + ANNUAL_BONUS + SALES_COMMISSION
+     *
+     * Filter: TOTAL_COMPENSATION > 80,000
+     *
+     * Expected JSON Output (Pretty Printed):
+     * [
+     *   {
+     *     "NAME": "David Lee",
+     *     "DEPARTMENT_NAME": "Sales",
+     *     "SALARY": 95000.00,
+     *     "SALE_AMOUNT_sum": 83000.00,
+     *     "TOTAL_COMPENSATION": 106160.00
+     *   },
+     *   {
+     *     "NAME": "Bob Smith",
+     *     "DEPARTMENT_NAME": "Sales",
+     *     "SALARY": 90000.00,
+     *     "SALE_AMOUNT_sum": 55000.00,
+     *     "TOTAL_COMPENSATION": 100100.00
+     *   },
+     *   {
+     *     "NAME": "Grace Davis",
+     *     "DEPARTMENT_NAME": "Sales",
+     *     "SALARY": 88000.00,
+     *     "SALE_AMOUNT_sum": 42000.00,
+     *     "TOTAL_COMPENSATION": 97640.00
+     *   },
+     *   {
+     *     "NAME": "Charlie Brown",
+     *     "DEPARTMENT_NAME": "Engineering",
+     *     "SALARY": 85000.00,
+     *     "SALE_AMOUNT_sum": null,
+     *     "TOTAL_COMPENSATION": 93500.00
+     *   },
+     *   {
+     *     "NAME": "Eve Wilson",
+     *     "DEPARTMENT_NAME": "Engineering",
+     *     "SALARY": 82000.00,
+     *     "SALE_AMOUNT_sum": null,
+     *     "TOTAL_COMPENSATION": 90200.00
+     *   },
+     *   {
+     *     "NAME": "Alice Johnson",
+     *     "DEPARTMENT_NAME": "Engineering",
+     *     "SALARY": 80000.00,
+     *     "SALE_AMOUNT_sum": null,
+     *     "TOTAL_COMPENSATION": 88000.00
+     *   }
+     * ]
+     *
+     * Note: Frank Miller (Marketing, 70k salary) is excluded as his total compensation
+     * (77,000) is below the 80,000 threshold.
      */
     @Test
     void testComprehensiveAnalysis() throws Exception {
