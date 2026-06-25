@@ -558,4 +558,341 @@ class FullWorkflowIntegrationTest {
             assertThat(hasSalesEmployee).isTrue();
         }
     }
+
+    /**
+     * Test 5: Nested objects within records (Phase 2 pattern).
+     *
+     * Business scenario: Structure employee records with logical nested sections
+     * (personal info, employment info, compensation) rather than flat fields.
+     *
+     * Expected JSON Output:
+     * [
+     *   {
+     *     "personal": {
+     *       "id": 1,
+     *       "fullName": "Alice Johnson",
+     *       "hireDate": "2020-01-15"
+     *     },
+     *     "employment": {
+     *       "department": "Engineering",
+     *       "departmentId": 10,
+     *       "status": "Active"
+     *     },
+     *     "compensation": {
+     *       "annualSalary": 80000.00,
+     *       "currency": "USD",
+     *       "payFrequency": "monthly"
+     *     }
+     *   },
+     *   {
+     *     "personal": {
+     *       "id": 2,
+     *       "fullName": "Bob Smith",
+     *       "hireDate": "2019-03-10"
+     *     },
+     *     "employment": {
+     *       "department": "Sales",
+     *       "departmentId": 20,
+     *       "status": "Active"
+     *     },
+     *     "compensation": {
+     *       "annualSalary": 90000.00,
+     *       "currency": "USD",
+     *       "payFrequency": "monthly"
+     *     }
+     *   },
+     *   ...
+     * ]
+     *
+     * Note: This demonstrates Phase 2 - nested objects within each record.
+     * Currently requires manual construction; future implementation would
+     * provide declarative mapping API.
+     */
+    @Test
+    void testNestedObjectsWithinRecords() throws Exception {
+        // Fetch employee and department data
+        DataSet employees = createDataSetFromQuery("SELECT * FROM employees", "employees");
+        DataSet departments = createDataSetFromQuery("SELECT * FROM departments", "departments");
+
+        // Join to get department names
+        DataSet joined = DataOperations.innerJoin(employees, departments,
+                "DEPARTMENT_ID", "DEPARTMENT_ID");
+
+        // Build nested object structure for each employee
+        List<Map<String, Object>> structuredRecords = new ArrayList<>();
+
+        for (DataRow row : joined.getRows()) {
+            Map<String, Object> record = new HashMap<>();
+
+            // Personal information section
+            Map<String, Object> personal = new HashMap<>();
+            personal.put("id", row.getInt("EMPLOYEE_ID"));
+            personal.put("fullName", row.getString("NAME"));
+            personal.put("hireDate", row.get("HIRE_DATE").toString());
+            record.put("personal", personal);
+
+            // Employment information section
+            Map<String, Object> employment = new HashMap<>();
+            employment.put("department", row.getString("DEPARTMENT_NAME"));
+            employment.put("departmentId", row.getInt("DEPARTMENT_ID"));
+            employment.put("status", "Active");
+            record.put("employment", employment);
+
+            // Compensation information section
+            Map<String, Object> compensation = new HashMap<>();
+            compensation.put("annualSalary", row.getBigDecimal("SALARY"));
+            compensation.put("currency", "USD");
+            compensation.put("payFrequency", "monthly");
+            record.put("compensation", compensation);
+
+            structuredRecords.add(record);
+        }
+
+        // Convert to JSON
+        com.fasterxml.jackson.databind.ObjectMapper mapper =
+                new com.fasterxml.jackson.databind.ObjectMapper();
+        String nestedJson = mapper.writerWithDefaultPrettyPrinter()
+                .writeValueAsString(structuredRecords);
+
+        // Verify nested structure
+        assertThat(structuredRecords).hasSize(7); // All 7 employees
+
+        // Verify first record has nested sections
+        Map<String, Object> firstRecord = structuredRecords.get(0);
+        assertThat(firstRecord).containsKeys("personal", "employment", "compensation");
+
+        // Verify personal section structure
+        @SuppressWarnings("unchecked")
+        Map<String, Object> personal = (Map<String, Object>) firstRecord.get("personal");
+        assertThat(personal).containsKeys("id", "fullName", "hireDate");
+        assertThat(personal.get("id")).isInstanceOf(Integer.class);
+        assertThat(personal.get("fullName")).isInstanceOf(String.class);
+
+        // Verify employment section structure
+        @SuppressWarnings("unchecked")
+        Map<String, Object> employment = (Map<String, Object>) firstRecord.get("employment");
+        assertThat(employment).containsKeys("department", "departmentId", "status");
+        assertThat(employment.get("status")).isEqualTo("Active");
+
+        // Verify compensation section structure
+        @SuppressWarnings("unchecked")
+        Map<String, Object> compensation = (Map<String, Object>) firstRecord.get("compensation");
+        assertThat(compensation).containsKeys("annualSalary", "currency", "payFrequency");
+        assertThat(compensation.get("currency")).isEqualTo("USD");
+        assertThat(compensation.get("payFrequency")).isEqualTo("monthly");
+
+        // Verify JSON contains nested structure
+        assertThat(nestedJson)
+                .contains("\"personal\"")
+                .contains("\"employment\"")
+                .contains("\"compensation\"")
+                .contains("\"fullName\"")
+                .contains("\"department\"")
+                .contains("\"annualSalary\"");
+
+        // Output for visual verification
+        System.out.println("\nPhase 2 - Nested Objects Within Records:");
+        System.out.println(nestedJson);
+
+        // Verify each record is structured the same way
+        for (Map<String, Object> record : structuredRecords) {
+            assertThat(record).containsKeys("personal", "employment", "compensation");
+        }
+    }
+
+    /**
+     * Test 6: Hierarchical nested structure (Phase 3 pattern).
+     *
+     * Business scenario: Create a department-centric hierarchical view where each department
+     * contains its metadata and an array of employees. This demonstrates building hierarchical
+     * JSON with grouped nested arrays (parent-child relationships).
+     *
+     * Expected JSON Output:
+     * {
+     *   "company": "Acme Corp",
+     *   "reportDate": "2024-06-24",
+     *   "departments": [
+     *     {
+     *       "departmentId": 10,
+     *       "departmentName": "Engineering",
+     *       "budget": 500000.00,
+     *       "headcount": 3,
+     *       "totalSalary": 247000.00,
+     *       "employees": [
+     *         {
+     *           "id": 1,
+     *           "name": "Alice Johnson",
+     *           "salary": 80000.00,
+     *           "hireDate": "2020-01-15"
+     *         },
+     *         {
+     *           "id": 3,
+     *           "name": "Charlie Brown",
+     *           "salary": 85000.00,
+     *           "hireDate": "2021-06-20"
+     *         },
+     *         {
+     *           "id": 5,
+     *           "name": "Eve Wilson",
+     *           "salary": 82000.00,
+     *           "hireDate": "2022-02-28"
+     *         }
+     *       ]
+     *     },
+     *     {
+     *       "departmentId": 20,
+     *       "departmentName": "Sales",
+     *       "budget": 750000.00,
+     *       "headcount": 3,
+     *       "totalSalary": 273000.00,
+     *       "employees": [
+     *         {
+     *           "id": 2,
+     *           "name": "Bob Smith",
+     *           "salary": 90000.00,
+     *           "hireDate": "2019-03-10"
+     *         },
+     *         {
+     *           "id": 4,
+     *           "name": "David Lee",
+     *           "salary": 95000.00,
+     *           "hireDate": "2018-11-05"
+     *         },
+     *         {
+     *           "id": 7,
+     *           "name": "Grace Davis",
+     *           "salary": 88000.00,
+     *           "hireDate": "2020-07-01"
+     *         }
+     *       ]
+     *     },
+     *     {
+     *       "departmentId": 30,
+     *       "departmentName": "Marketing",
+     *       "budget": 300000.00,
+     *       "headcount": 1,
+     *       "totalSalary": 70000.00,
+     *       "employees": [
+     *         {
+     *           "id": 6,
+     *           "name": "Frank Miller",
+     *           "salary": 70000.00,
+     *           "hireDate": "2021-09-12"
+     *         }
+     *       ]
+     *     }
+     *   ]
+     * }
+     *
+     * Note: This demonstrates Phase 3 - hierarchical grouping with nested arrays.
+     * Currently requires manual construction; future implementation would provide
+     * declarative grouping and nesting API.
+     */
+    @Test
+    void testHierarchicalNestedStructure() throws Exception {
+        // Fetch base data
+        DataSet employees = createDataSetFromQuery("SELECT * FROM employees", "employees");
+        DataSet departments = createDataSetFromQuery("SELECT * FROM departments", "departments");
+
+        // Calculate department-level aggregations directly from employees
+        DataSet deptStats = DataQuery.from(employees)
+                .groupBy("DEPARTMENT_ID")
+                .sum("SALARY")
+                .count("EMPLOYEE_ID")
+                .execute();
+
+        // Build nested JSON structure manually
+        Map<String, Object> report = new HashMap<>();
+        report.put("company", "Acme Corp");
+        report.put("reportDate", "2024-06-24");
+
+        List<Map<String, Object>> departmentsList = new ArrayList<>();
+
+        // Process each department
+        for (DataRow deptStat : deptStats.getRows()) {
+            int deptId = deptStat.getInt("DEPARTMENT_ID");
+
+            // Get department info
+            DataRow deptInfo = departments.getRows().stream()
+                    .filter(row -> row.getInt("DEPARTMENT_ID") == deptId)
+                    .findFirst()
+                    .orElseThrow();
+
+            // Build department object
+            Map<String, Object> department = new HashMap<>();
+            department.put("departmentId", deptId);
+            department.put("departmentName", deptInfo.getString("DEPARTMENT_NAME"));
+            department.put("budget", deptInfo.getBigDecimal("BUDGET"));
+            department.put("headcount", deptStat.getLong("EMPLOYEE_ID_count"));
+            department.put("totalSalary", deptStat.getDouble("SALARY_sum"));
+
+            // Get employees for this department
+            List<Map<String, Object>> employeesList = new ArrayList<>();
+            for (DataRow emp : employees.getRows()) {
+                if (emp.getInt("DEPARTMENT_ID") == deptId) {
+                    Map<String, Object> employee = new HashMap<>();
+                    employee.put("id", emp.getInt("EMPLOYEE_ID"));
+                    employee.put("name", emp.getString("NAME"));
+                    employee.put("salary", emp.getBigDecimal("SALARY"));
+                    employee.put("hireDate", emp.get("HIRE_DATE").toString());
+                    employeesList.add(employee);
+                }
+            }
+
+            department.put("employees", employeesList);
+            departmentsList.add(department);
+        }
+
+        report.put("departments", departmentsList);
+
+        // Convert to JSON
+        com.fasterxml.jackson.databind.ObjectMapper mapper =
+                new com.fasterxml.jackson.databind.ObjectMapper();
+        String nestedJson = mapper.writerWithDefaultPrettyPrinter()
+                .writeValueAsString(report);
+
+        // Verify nested structure
+        assertThat(nestedJson)
+                .contains("\"company\"")
+                .contains("\"departments\"")
+                .contains("\"employees\"")
+                .contains("\"headcount\"");
+
+        // Verify we have all 3 departments
+        assertThat(departmentsList).hasSize(3);
+
+        // Verify Engineering department structure
+        Map<String, Object> engineering = departmentsList.stream()
+                .filter(dept -> "Engineering".equals(dept.get("departmentName")))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(engineering.get("departmentId")).isEqualTo(10);
+        assertThat(engineering.get("headcount")).isEqualTo(3L);
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> engEmployees =
+                (List<Map<String, Object>>) engineering.get("employees");
+        assertThat(engEmployees).hasSize(3);
+        assertThat(engEmployees.get(0)).containsKeys("id", "name", "salary", "hireDate");
+
+        // Verify Sales department has highest budget
+        Map<String, Object> sales = departmentsList.stream()
+                .filter(dept -> "Sales".equals(dept.get("departmentName")))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(sales.get("budget")).isEqualTo(new BigDecimal("750000.00"));
+
+        // Output for visual verification
+        System.out.println("\nNested JSON Structure:");
+        System.out.println(nestedJson);
+
+        // Verify that nested structure is truly hierarchical
+        assertThat(nestedJson.split("\"employees\"").length - 1).isEqualTo(3); // 3 employee arrays
+        assertThat(nestedJson).contains("Engineering");
+        assertThat(nestedJson).contains("Sales");
+        assertThat(nestedJson).contains("Marketing");
+        assertThat(nestedJson).contains("\"departmentName\"");
+    }
 }
