@@ -1,7 +1,11 @@
 package com.reporting.framework.mapper;
 
+import com.google.common.base.CaseFormat;
+
 /**
  * Naming strategy for converting database column names to map keys.
+ *
+ * Uses Google Guava's CaseFormat for robust, well-tested conversions.
  *
  * Common use cases:
  * - NONE: Keep original column names (e.g., "EMPLOYEE_ID" stays "EMPLOYEE_ID")
@@ -64,13 +68,13 @@ public enum NamingStrategy {
                 return columnName;
 
             case CAMEL_CASE:
-                return toCamelCase(columnName);
+                return convertTo(columnName, CaseFormat.LOWER_CAMEL);
 
             case SNAKE_CASE:
-                return toSnakeCase(columnName);
+                return convertTo(columnName, CaseFormat.LOWER_UNDERSCORE);
 
             case PASCAL_CASE:
-                return toPascalCase(columnName);
+                return convertTo(columnName, CaseFormat.UPPER_CAMEL);
 
             case LOWER_CASE:
                 return columnName.toLowerCase();
@@ -84,76 +88,52 @@ public enum NamingStrategy {
     }
 
     /**
-     * Convert a string to camelCase.
-     * Handles: UPPER_SNAKE_CASE, snake_case, PascalCase, camelCase
+     * Convert a column name to the target CaseFormat by detecting the source format.
+     *
+     * @param input The input string
+     * @param targetFormat The target CaseFormat
+     * @return The converted string
      */
-    private static String toCamelCase(String input) {
-        // Already camelCase or single word
-        if (!input.contains("_") && !input.equals(input.toUpperCase())) {
-            // If it's PascalCase, lowercase the first letter
-            if (Character.isUpperCase(input.charAt(0))) {
-                return Character.toLowerCase(input.charAt(0)) + input.substring(1);
-            }
+    private static String convertTo(String input, CaseFormat targetFormat) {
+        CaseFormat sourceFormat = detectFormat(input);
+
+        try {
+            return sourceFormat.to(targetFormat, input);
+        } catch (Exception e) {
+            // If conversion fails, return original string
             return input;
         }
-
-        // Split by underscore and process each word
-        String[] parts = input.toLowerCase().split("_");
-        StringBuilder result = new StringBuilder(parts[0]); // First word stays lowercase
-
-        for (int i = 1; i < parts.length; i++) {
-            if (!parts[i].isEmpty()) {
-                result.append(Character.toUpperCase(parts[i].charAt(0)));
-                if (parts[i].length() > 1) {
-                    result.append(parts[i].substring(1));
-                }
-            }
-        }
-
-        return result.toString();
     }
 
     /**
-     * Convert a string to snake_case.
-     * Handles: camelCase, PascalCase, UPPER_SNAKE_CASE
+     * Detect the CaseFormat of a string.
+     *
+     * Detection rules:
+     * - UPPER_UNDERSCORE: Contains _ and all letters are uppercase (e.g., EMPLOYEE_ID)
+     *                     OR all uppercase with no underscores (e.g., ID, NAME)
+     * - LOWER_UNDERSCORE: Contains _ and has lowercase letters (e.g., employee_id)
+     * - UPPER_CAMEL: Starts with uppercase, has lowercase, no _ (e.g., EmployeeId)
+     * - LOWER_CAMEL: Starts with lowercase, has uppercase letters, no _ (e.g., employeeId)
      */
-    private static String toSnakeCase(String input) {
-        // Already snake_case
-        if (input.contains("_") && input.equals(input.toLowerCase())) {
-            return input;
-        }
+    private static CaseFormat detectFormat(String input) {
+        if (input.contains("_")) {
+            // Has underscores - snake_case variant
+            boolean hasLowercase = !input.equals(input.toUpperCase());
+            return hasLowercase ? CaseFormat.LOWER_UNDERSCORE : CaseFormat.UPPER_UNDERSCORE;
+        } else {
+            // No underscores - check if all uppercase (like "ID", "NAME")
+            if (input.equals(input.toUpperCase())) {
+                // All uppercase - treat as UPPER_UNDERSCORE
+                return CaseFormat.UPPER_UNDERSCORE;
+            }
 
-        // Already UPPER_SNAKE_CASE
-        if (input.contains("_") && input.equals(input.toUpperCase())) {
-            return input.toLowerCase();
-        }
-
-        // Convert camelCase or PascalCase to snake_case
-        StringBuilder result = new StringBuilder();
-        for (int i = 0; i < input.length(); i++) {
-            char c = input.charAt(i);
-
-            if (Character.isUpperCase(c)) {
-                // Add underscore before uppercase letter, but not at the start
-                // and not if previous character was already uppercase
-                if (i > 0 && Character.isLowerCase(input.charAt(i - 1))) {
-                    result.append('_');
-                }
-                result.append(Character.toLowerCase(c));
+            // Mixed case - camel case variant
+            if (input.isEmpty() || Character.isLowerCase(input.charAt(0))) {
+                return CaseFormat.LOWER_CAMEL;
             } else {
-                result.append(c);
+                return CaseFormat.UPPER_CAMEL;
             }
         }
-
-        return result.toString();
     }
 
-    /**
-     * Convert a string to PascalCase.
-     * Handles: UPPER_SNAKE_CASE, snake_case, camelCase
-     */
-    private static String toPascalCase(String input) {
-        String camelCase = toCamelCase(input);
-        return Character.toUpperCase(camelCase.charAt(0)) + camelCase.substring(1);
-    }
 }
