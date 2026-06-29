@@ -1,6 +1,8 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+> **⚠️ INTERNAL USE ONLY**
+> This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+> This is NOT user-facing documentation. See README.md for public documentation.
 
 ## Project Overview
 
