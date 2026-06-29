@@ -381,66 +381,6 @@ for (DataRow dept : summary.getRows()) {
 }
 ```
 
-## 🔧 POJO Mode (Type-Safe Alternative)
-
-For stable schemas, use POJO mode for compile-time type safety.
-
-### 1. Create POJO
-
-```java
-public class EmployeeReport {
-    private Integer employeeId;
-    private String name;
-    private BigDecimal salary;
-    private LocalDate hireDate;
-    // getters/setters
-}
-```
-
-### 2. Configure Metadata with Explicit Mappings
-
-```json
-{
-  "reportName": "employee_report",
-  "storedProcedure": "dbo.usp_GetEmployees",
-  "resultClass": "com.example.EmployeeReport",
-  "inputParameters": [
-    {"name": "DepartmentId", "sqlType": "INTEGER", "javaType": "java.lang.Integer", "required": true}
-  ],
-  "resultSetMapping": {
-    "strategy": "EXPLICIT",
-    "columnMappings": [
-      {"column": "employee_id", "field": "employeeId", "required": true},
-      {"column": "name", "field": "name", "required": true},
-      {"column": "salary", "field": "salary", "required": true},
-      {"column": "hire_date", "field": "hireDate", "required": true}
-    ],
-    "unmappedColumnsStrategy": "IGNORE"
-  }
-}
-```
-
-### 3. Execute
-
-```java
-// Map-based parameters
-Map<String, Object> params = Map.of("DepartmentId", 10);
-ReportResult<EmployeeReport> result = reportService.execute("employee_report", params);
-
-List<EmployeeReport> employees = result.getResults();
-Integer totalCount = (Integer) result.getOutputParameter("TotalCount");
-
-// Or POJO-based parameters
-public class EmployeeReportRequest {
-    private Integer departmentId;
-    // getter/setter
-}
-
-EmployeeReportRequest request = new EmployeeReportRequest();
-request.setDepartmentId(10);
-ReportResult<EmployeeReport> result = reportService.execute("employee_report", request);
-```
-
 ## 📋 Configuration
 
 ### Metadata JSON Structure
@@ -470,24 +410,6 @@ ReportResult<EmployeeReport> result = reportService.execute("employee_report", r
 }
 ```
 
-**For POJO Mode:**
-
-```json
-{
-  "reportName": "report_name",
-  "storedProcedure": "dbo.usp_ProcedureName",
-  "resultClass": "com.example.YourPojo",
-  "inputParameters": [...],
-  "outputParameters": [...],
-  "resultSetMapping": {
-    "strategy": "EXPLICIT",
-    "columnMappings": [
-      {"column": "db_column", "field": "javaField", "required": true}
-    ],
-    "unmappedColumnsStrategy": "IGNORE"
-  }
-}
-```
 
 ### Supported SQL Types
 
@@ -539,24 +461,6 @@ new DataSet(rows, outputParams, reportName)
 DataQuery.from(dataSet).filter(...).execute() → DataSet
   ↓
 DataOperations.join(dataSet1, dataSet2) → DataSet
-```
-
-### POJO Mode Flow
-
-```
-Client
-  ↓
-ReportService.execute(reportName, params)
-  ↓
-MetadataLoader → Database
-  ↓
-StoredProcedureExecutor → CallableStatement
-  ↓
-ResultSetToMapConverter → List<Map> (using explicit column mappings)
-  ↓
-JacksonPojoMapper → List<POJO>
-  ↓
-new ReportResult<T>(results, outputParams, reportName)
 ```
 
 ## 🎯 Design Principles
@@ -613,18 +517,6 @@ The framework includes:
 - ✅ `DataQuery` as fluent DSL builder
 - ✅ `DataOperations` for complex operations
 - ✅ 32 comprehensive tests
-
-### main Branch
-
-- Standard POJO-based approach only
-- No dynamic mode
-- No DataRow/DataSet/DataQuery/DataOperations
-
-### spark-impl Branch
-
-- Apache Spark integration (~300MB JAR)
-- Spark Dataset<Row> for big data processing
-- Distributed computing support
 
 ## 📝 License
 
