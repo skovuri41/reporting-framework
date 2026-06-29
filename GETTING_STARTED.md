@@ -109,6 +109,79 @@ BEGIN
 END;
 ```
 
+### Understanding Metadata Structure
+
+Before registering metadata, it's important to understand the JSON structure that the framework expects. The metadata stored procedure returns (or you insert into the table) a JSON object with this structure:
+
+```json
+{
+  "procedureId": "emp_001",
+  "procedureName": "usp_GetEmployees",
+  "description": "Fetch employees by department and salary threshold",
+  "parameters": [
+    {
+      "name": "DepartmentId",
+      "fieldName": "departmentId",
+      "type": "INTEGER",
+      "nullable": false
+    },
+    {
+      "name": "MinSalary",
+      "fieldName": "minSalary",
+      "type": "DECIMAL",
+      "nullable": true
+    }
+  ],
+  "columns": [
+    {
+      "columnName": "EMPLOYEE_ID",
+      "fieldName": "employeeId",
+      "columnType": "INTEGER"
+    },
+    {
+      "columnName": "FIRST_NAME",
+      "fieldName": "firstName",
+      "columnType": "VARCHAR"
+    },
+    {
+      "columnName": "SALARY",
+      "fieldName": "salary",
+      "columnType": "DECIMAL"
+    }
+  ],
+  "outputParameters": [
+    {
+      "name": "TotalCount",
+      "fieldName": "totalCount",
+      "type": "INTEGER"
+    }
+  ]
+}
+```
+
+**Key Fields:**
+
+- **procedureId**: Unique identifier for caching and lookup (e.g., "emp_001")
+- **procedureName**: Actual SQL stored procedure name (e.g., "usp_GetEmployees")
+- **description**: Human-readable description of what the procedure does
+- **parameters**: Array of input parameters
+  - **name**: SQL parameter name (must match stored procedure)
+  - **fieldName**: Java camelCase field name for API
+  - **type**: SQL type (INTEGER, VARCHAR, DECIMAL, DATE, etc.)
+  - **nullable**: `false` = required parameter, `true` = optional
+- **columns**: Array of result set columns (maps SQL columns to camelCase)
+  - **columnName**: SQL column name from ResultSet (typically UPPER_SNAKE_CASE)
+  - **fieldName**: Java camelCase field name (e.g., "employeeId")
+  - **columnType**: SQL column type
+- **outputParameters**: Array of output parameters (e.g., row counts, status codes)
+  - Same structure as input parameters
+
+**Important Notes:**
+- The framework filters input parameters - you can pass extra parameters and they'll be ignored
+- Column mapping enables consistent camelCase access in Java (row.getInt("employeeId") instead of row.getInt("EMPLOYEE_ID"))
+- Required parameters (nullable: false) will cause MissingParameterException if missing
+- Output parameters are accessible via DataSet.getOutputParameter("fieldName")
+
 ### Step 4: Register Procedure Metadata
 
 ```sql
