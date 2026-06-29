@@ -2,15 +2,7 @@
 
 A lightweight, metadata-driven framework for executing SQL Server stored procedures with two execution modes: **POJO-based** (type-safe) and **Dynamic** (schema-free with fluent transformations).
 
-## 🎯 Two Execution Modes
-
-### 1. **POJO Mode** - Compile-Time Type Safety
-For stable schemas where you want compile-time type checking.
-
-```java
-ReportResult<EmployeeReport> result = reportService.execute("employee_report", params);
-List<EmployeeReport> employees = result.getResults();
-```
+## 🎯 Execution Modes
 
 ### 2. **Dynamic Mode** - Runtime Flexibility ⭐
 For dynamic schemas with powerful transformations (filter, join, aggregate, pivot).
@@ -25,7 +17,6 @@ DataSet processed = DataQuery.from(result)
 
 ## 🌟 Features
 
-- **Dual Mode**: POJO mode for type safety, Dynamic mode for flexibility
 - **Type-Safe Access**: `DataRow` with `getString()`, `getInt()`, `getBigDecimal()` - no casting
 - **Fluent DSL**: Chainable transformations via `DataQuery` builder
 - **Data Operations**: Joins, unions, pivots, aggregations, running totals via `DataOperations`
