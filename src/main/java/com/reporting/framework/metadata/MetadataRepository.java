@@ -5,19 +5,19 @@ import com.reporting.framework.exception.MetadataException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.sql.CallableStatement;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 
 /**
- * Data access layer for querying the REPORT_METADATA table.
+ * Data access layer for calling the metadata stored procedure.
+ * Replaces the old SELECT-based approach with stored procedure calls.
  */
 public class MetadataRepository {
 
     private static final Logger logger = LoggerFactory.getLogger(MetadataRepository.class);
-    private static final String QUERY_METADATA =
-            "SELECT METADATA_JSON FROM REPORT_METADATA WHERE REPORT_NAME = ?";
+    private static final String CALL_METADATA_PROC = "{call usp_GetProcedureMetadata(?, ?)}";
 
     private final ConnectionProvider connectionProvider;
 
@@ -29,35 +29,55 @@ public class MetadataRepository {
     }
 
     /**
-     * Fetch the metadata JSON for a given report name.
+     * Fetch the metadata JSON for a given procedure ID by calling the metadata stored procedure.
      *
-     * @param reportName The name of the report
-     * @return The metadata JSON string
-     * @throws MetadataException if metadata not found or query fails
+     * @param procedureId The ID of the stored procedure (or NULL for all procedures)
+     * @return The metadata JSON string from the OUT parameter
+     * @throws MetadataException if metadata not found or procedure call fails
      */
-    public String fetchMetadataJson(String reportName) {
-        logger.debug("Fetching metadata for report: {}", reportName);
+    public String fetchMetadataJson(String procedureId) {
+        logger.debug("Fetching metadata for procedure: {}", procedureId);
 
         try (Connection conn = connectionProvider.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(QUERY_METADATA)) {
+             CallableStatement stmt = conn.prepareCall(CALL_METADATA_PROC)) {
 
-            stmt.setString(1, reportName);
+            // Set input parameter (procedure ID)
+            if (procedureId == null) {
+                stmt.setNull(1, Types.VARCHAR);
+                logger.debug("Fetching metadata for ALL procedures");
+            } else {
+                stmt.setString(1, procedureId);
+            }
 
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    String metadataJson = rs.getString("METADATA_JSON");
-                    logger.debug("Successfully fetched metadata for report: {}", reportName);
-                    return metadataJson;
+            // Register output parameter (metadata JSON)
+            stmt.registerOutParameter(2, Types.NVARCHAR);
+
+            // Execute stored procedure
+            stmt.execute();
+
+            // Get output parameter
+            String metadataJson = stmt.getString(2);
+
+            if (metadataJson == null || metadataJson.trim().isEmpty()) {
+                if (procedureId == null) {
+                    throw new MetadataException("No metadata found - stored procedure returned null/empty JSON");
                 } else {
-                    throw new MetadataException(reportName,
-                            "No metadata found in database");
+                    throw new MetadataException(procedureId,
+                            "No metadata found for procedure - stored procedure returned null/empty JSON");
                 }
             }
 
+            logger.debug("Successfully fetched metadata (JSON length: {} characters)", metadataJson.length());
+            return metadataJson;
+
         } catch (SQLException e) {
-            logger.error("Failed to fetch metadata for report: {}", reportName, e);
-            throw new MetadataException(reportName,
-                    "Failed to query metadata from database", e);
+            logger.error("Failed to call metadata stored procedure for: {}", procedureId, e);
+            if (procedureId == null) {
+                throw new MetadataException("Failed to call metadata stored procedure", e);
+            } else {
+                throw new MetadataException(procedureId,
+                        "Failed to call metadata stored procedure", e);
+            }
         }
     }
 }

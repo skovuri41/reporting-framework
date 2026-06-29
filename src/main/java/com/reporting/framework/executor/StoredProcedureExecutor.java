@@ -3,7 +3,7 @@ package com.reporting.framework.executor;
 import com.reporting.framework.connection.ConnectionProvider;
 import com.reporting.framework.exception.ReportExecutionException;
 import com.reporting.framework.metadata.ParameterMetadata;
-import com.reporting.framework.metadata.ReportMetadata;
+import com.reporting.framework.metadata.StoredProcedureMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,15 +34,15 @@ public class StoredProcedureExecutor {
     /**
      * Execute a stored procedure and return results.
      *
-     * @param metadata The report metadata
+     * @param metadata The stored procedure metadata
      * @param inputParameters The input parameter values
      * @return ExecutionResult containing ResultSet and output parameters
      */
-    public ExecutionResult execute(ReportMetadata metadata, Map<String, Object> inputParameters) {
-        String reportName = metadata.getReportName();
-        String storedProcedure = metadata.getStoredProcedure();
+    public ExecutionResult execute(StoredProcedureMetadata metadata, Map<String, Object> inputParameters) {
+        String procedureId = metadata.getProcedureId();
+        String procedureName = metadata.getProcedureName();
 
-        logger.info("Executing stored procedure: {} for report: {}", storedProcedure, reportName);
+        logger.info("Executing stored procedure: {} (ID: {})", procedureName, procedureId);
 
         Connection connection = null;
         CallableStatement statement = null;
@@ -69,7 +69,7 @@ public class StoredProcedureExecutor {
 
                 // Validate required parameters
                 if (param.isRequired() && value == null) {
-                    throw new ReportExecutionException(reportName, storedProcedure,
+                    throw new ReportExecutionException(procedureId, procedureName,
                             "Required parameter is missing: " + param.getName());
                 }
 
@@ -105,7 +105,7 @@ public class StoredProcedureExecutor {
             }
 
             logger.info("Successfully executed stored procedure: {} with {} output parameters",
-                    storedProcedure, outputParameters.size());
+                    procedureName, outputParameters.size());
 
             // Note: Do NOT close connection, statement, or resultSet here
             // They will be closed by the caller after processing the ResultSet
@@ -117,9 +117,9 @@ public class StoredProcedureExecutor {
             closeQuietly(statement);
             closeQuietly(connection);
 
-            logger.error("Failed to execute stored procedure: {} for report: {}",
-                    storedProcedure, reportName, e);
-            throw new ReportExecutionException(reportName, storedProcedure,
+            logger.error("Failed to execute stored procedure: {} (ID: {})",
+                    procedureName, procedureId, e);
+            throw new ReportExecutionException(procedureId, procedureName,
                     "Stored procedure execution failed: " + e.getMessage(), e);
         } catch (Exception e) {
             // Clean up on error
@@ -127,9 +127,9 @@ public class StoredProcedureExecutor {
             closeQuietly(statement);
             closeQuietly(connection);
 
-            logger.error("Unexpected error executing stored procedure: {} for report: {}",
-                    storedProcedure, reportName, e);
-            throw new ReportExecutionException(reportName, storedProcedure,
+            logger.error("Unexpected error executing stored procedure: {} (ID: {})",
+                    procedureName, procedureId, e);
+            throw new ReportExecutionException(procedureId, procedureName,
                     "Unexpected error: " + e.getMessage(), e);
         }
     }
@@ -138,16 +138,16 @@ public class StoredProcedureExecutor {
      * Build the CallableStatement SQL string.
      * Format: {call dbo.procedureName(?, ?, ?)}
      */
-    private String buildCallableStatementSql(ReportMetadata metadata) {
+    private String buildCallableStatementSql(StoredProcedureMetadata metadata) {
         int totalParams = metadata.getInputParameters().size() +
                 metadata.getOutputParameters().size();
 
         if (totalParams == 0) {
-            return "{call " + metadata.getStoredProcedure() + "}";
+            return "{call " + metadata.getProcedureName() + "}";
         }
 
         StringBuilder sql = new StringBuilder("{call ");
-        sql.append(metadata.getStoredProcedure());
+        sql.append(metadata.getProcedureName());
         sql.append("(");
 
         for (int i = 0; i < totalParams; i++) {

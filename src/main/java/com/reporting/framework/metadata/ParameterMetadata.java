@@ -9,52 +9,54 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public class ParameterMetadata {
 
     private final String name;
-    private final String sqlType;
-    private final String javaType;
-    private final boolean required;
+    private final String fieldName;
+    private final String type;
+    private final boolean nullable;
 
     @JsonCreator
     public ParameterMetadata(
             @JsonProperty("name") String name,
-            @JsonProperty("sqlType") String sqlType,
-            @JsonProperty("javaType") String javaType,
-            @JsonProperty("required") Boolean required) {
+            @JsonProperty("fieldName") String fieldName,
+            @JsonProperty("type") String type,
+            @JsonProperty("nullable") Boolean nullable) {
         this.name = name;
-        this.sqlType = sqlType;
-        this.javaType = javaType;
-        this.required = required != null ? required : false;
+        this.fieldName = fieldName;
+        this.type = type;
+        this.nullable = nullable != null ? nullable : false;
     }
 
     public String getName() {
         return name;
     }
 
-    public String getSqlType() {
-        return sqlType;
+    public String getFieldName() {
+        return fieldName;
     }
 
-    public String getJavaType() {
-        return javaType;
+    public String getType() {
+        return type;
     }
 
+    public boolean isNullable() {
+        return nullable;
+    }
+
+    // Legacy compatibility
     public boolean isRequired() {
-        return required;
+        return !nullable;
     }
 
-    /**
-     * Get the Java Class type for this parameter.
-     */
-    public Class<?> getJavaClass() throws ClassNotFoundException {
-        return Class.forName(javaType);
+    public String getSqlType() {
+        return type;
     }
 
     @Override
     public String toString() {
         return "ParameterMetadata{" +
                 "name='" + name + '\'' +
-                ", sqlType='" + sqlType + '\'' +
-                ", javaType='" + javaType + '\'' +
-                ", required=" + required +
+                ", fieldName='" + fieldName + '\'' +
+                ", type='" + type + '\'' +
+                ", nullable=" + nullable +
                 '}';
     }
 }

@@ -2,6 +2,7 @@ package com.reporting.framework.mapper;
 
 import com.reporting.framework.exception.ReportExecutionException;
 import com.reporting.framework.metadata.ColumnMapping;
+import com.reporting.framework.metadata.StoredProcedureMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -177,6 +178,53 @@ public class ResultSetToMapConverter {
         } catch (SQLException e) {
             logger.error("Failed to convert ResultSet to Maps with naming strategy", e);
             throw new ReportExecutionException("Failed to convert ResultSet to Maps", e);
+        }
+    }
+
+    /**
+     * Convert a ResultSet to a List of Maps using column metadata from stored procedure.
+     * Maps SQL column names to camelCase field names based on metadata.
+     *
+     * @param resultSet The ResultSet to convert
+     * @param metadata Stored procedure metadata containing column mappings
+     * @return List of Maps with camelCase field names
+     */
+    public List<Map<String, Object>> convertToMaps(ResultSet resultSet, StoredProcedureMetadata metadata) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+
+        try {
+            ResultSetMetaData rsMetadata = resultSet.getMetaData();
+            int columnCount = rsMetadata.getColumnCount();
+
+            // Build column mapping: SQL column name -> camelCase field name
+            Map<String, String> columnToFieldMap = metadata.getFieldNameMapping();
+
+            logger.debug("Using metadata column mappings for {} columns", columnToFieldMap.size());
+
+            // Process each row
+            while (resultSet.next()) {
+                Map<String, Object> row = new LinkedHashMap<>();
+
+                for (int i = 1; i <= columnCount; i++) {
+                    String sqlColumnName = rsMetadata.getColumnName(i);
+                    int sqlType = rsMetadata.getColumnType(i);
+
+                    // Map to camelCase field name
+                    String fieldName = columnToFieldMap.getOrDefault(sqlColumnName, sqlColumnName);
+
+                    Object value = getColumnValue(resultSet, i, sqlType);
+                    row.put(fieldName, value);
+                }
+
+                rows.add(row);
+            }
+
+            logger.debug("Converted {} rows with camelCase field names using metadata", rows.size());
+            return rows;
+
+        } catch (SQLException e) {
+            logger.error("Failed to convert ResultSet using metadata", e);
+            throw new ReportExecutionException("Failed to convert ResultSet using metadata", e);
         }
     }
 
