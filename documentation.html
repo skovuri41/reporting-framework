@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metadata-Driven Java Reporting Framework - Documentation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Smooth scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Custom styles for code blocks */
+        pre {
+            background-color: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+        }
+
+        code {
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+        }
+
+        /* Sticky navigation */
+        .sticky-nav {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        /* Active nav link */
+        .nav-link.active {
+            background-color: #3b82f6;
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+
+    <!-- Header -->
+    <header class="sticky-nav bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
+        <div class="container mx-auto px-6 py-4">
+            <h1 class="text-3xl font-bold">Metadata-Driven Java Reporting Framework</h1>
+            <p class="text-blue-100 mt-1">Complete Documentation</p>
+        </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="sticky-nav bg-white shadow-md border-b">
+        <div class="container mx-auto px-6">
+            <div class="flex overflow-x-auto py-3 space-x-2">
+                <a href="#overview" class="nav-link px-4 py-2 rounded-lg hover:bg-blue-50 transition whitespace-nowrap">Overview</a>
+                <a href="#getting-started" class="nav-link px-4 py-2 rounded-lg hover:bg-blue-50 transition whitespace-nowrap">Getting Started</a>
+                <a href="#api-reference" class="nav-link px-4 py-2 rounded-lg hover:bg-blue-50 transition whitespace-nowrap">API Reference</a>
+                <a href="#architecture" class="nav-link px-4 py-2 rounded-lg hover:bg-blue-50 transition whitespace-nowrap">Architecture</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-6 py-8 max-w-6xl">
+
+        <!-- OVERVIEW SECTION -->
+        <section id="overview" class="mb-16">
+            <div class="bg-white rounded-lg shadow-md p-8">
+                <h2 class="text-4xl font-bold text-gray-900 mb-6">Overview</h2>
+
+                <p class="text-lg text-gray-700 mb-6">
+                    A lightweight, flexible framework for executing SQL Server stored procedures with powerful data transformation capabilities.
+                    Perfect for ETL pipelines, reporting systems, and data analytics.
+                </p>
+
+                <div class="grid md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-blue-50 p-6 rounded-lg">
+                        <h3 class="font-bold text-xl mb-2 text-blue-900">🎯 ETL Developers</h3>
+                        <p class="text-gray-700">Execute stored procedures, transform data, load to destinations</p>
+                    </div>
+                    <div class="bg-green-50 p-6 rounded-lg">
+                        <h3 class="font-bold text-xl mb-2 text-green-900">💻 Java Developers</h3>
+                        <p class="text-gray-700">Type-safe API with fluent DSL for data operations</p>
+                    </div>
+                    <div class="bg-purple-50 p-6 rounded-lg">
+                        <h3 class="font-bold text-xl mb-2 text-purple-900">📊 Product Teams</h3>
+                        <p class="text-gray-700">Understand capabilities for reporting and analytics solutions</p>
+                    </div>
+                </div>
+
+                <h3 class="text-2xl font-bold mb-4">⚡ Key Features</h3>
+
+                <div class="space-y-6 mb-8">
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Zero-Code Report Configuration</h4>
+                        <p class="text-gray-700 mb-3">Add new reports by inserting metadata - no code changes required</p>
+                        <pre><code>-- Define once in metadata, execute anywhere
+INSERT INTO metadata...</code></pre>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Powerful Data Transformations</h4>
+                        <pre><code>DataSet result = reportService.execute("employees", params);
+
+// Fluent transformations
+DataSet analysis = DataQuery.from(result)
+    .filter(row -> row.getBigDecimal("salary").compareTo(BigDecimal.valueOf(85000)) >= 0)
+    .withColumn("bonus", row -> row.getBigDecimal("salary").multiply(0.1))
+    .orderBy("salary").desc()
+    .execute();</code></pre>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Advanced Operations</h4>
+                        <ul class="list-disc list-inside text-gray-700 space-y-1">
+                            <li><strong>Joins:</strong> Inner, left, right, full outer, cross</li>
+                            <li><strong>Aggregations:</strong> Sum, avg, count, min, max with groupBy</li>
+                            <li><strong>Pivots:</strong> Transform rows to columns</li>
+                            <li><strong>Computed Columns:</strong> Add calculated fields on-the-fly</li>
+                            <li><strong>JSON Export:</strong> Native JSON output for APIs and reporting</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Type-Safe Data Access</h4>
+                        <pre><code>DataRow employee = result.first();
+Integer id = employee.getInt("employeeId");           // Type-safe
+BigDecimal salary = employee.getBigDecimal("salary"); // No casting
+LocalDate hired = employee.getLocalDate("hireDate");  // Java 8 time API</code></pre>
+                    </div>
+                </div>
+
+                <h3 class="text-2xl font-bold mb-4">📊 Quick Examples</h3>
+
+                <div class="space-y-6">
+                    <div class="border-l-4 border-blue-500 pl-4">
+                        <h4 class="font-bold text-lg mb-2">Example 1: ETL Pipeline</h4>
+                        <pre><code>// Execute stored procedure
+DataSet salesData = reportService.execute("monthly_sales",
+    Map.of("month", "2024-01", "region", "US"));
+
+// Transform data
+DataSet aggregated = DataQuery.from(salesData)
+    .groupBy("productCategory")
+        .sum("amount")
+        .count("transactionId")
+    .execute();
+
+// Export to JSON
+String json = aggregated.toJSON();
+// Send to API, save to file, load to data warehouse, etc.</code></pre>
+                    </div>
+
+                    <div class="border-l-4 border-green-500 pl-4">
+                        <h4 class="font-bold text-lg mb-2">Example 2: Business Analytics</h4>
+                        <pre><code>// Multi-table analysis
+DataSet employees = reportService.execute("employees");
+DataSet departments = reportService.execute("departments");
+
+// Join and analyze
+DataSet analysis = DataOperations.innerJoin(
+    employees, departments,
+    "departmentId", "departmentId"
+);
+
+DataSet topDepts = DataQuery.from(analysis)
+    .groupBy("departmentName")
+        .avg("salary")
+        .count("employeeId")
+    .orderBy("salary_avg").desc()
+    .limit(10)
+    .execute();</code></pre>
+                    </div>
+                </div>
+
+                <h3 class="text-2xl font-bold mt-8 mb-4">🏗️ Architecture Overview</h3>
+                <pre><code>┌─────────────────┐
+│   Your Code     │
+│   (Java/ETL)    │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────────────────────┐
+│         ReportService                   │
+│  • Execute stored procedures            │
+│  • Automatic parameter filtering        │
+│  • Metadata-driven configuration        │
+└────────┬────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────┐
+│      Data Transformation Layer          │
+│  • DataQuery (fluent DSL)              │
+│  • DataOperations (joins, pivots)      │
+│  • Type-safe DataRow access            │
+└────────┬────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────┐
+│      SQL Server Database                │
+│  • Stored procedures                    │
+│  • Metadata stored proc                 │
+└─────────────────────────────────────────┘</code></pre>
+
+                <h3 class="text-2xl font-bold mt-8 mb-4">📋 Requirements</h3>
+                <ul class="list-disc list-inside text-gray-700 space-y-1">
+                    <li><strong>Java:</strong> 17 or higher</li>
+                    <li><strong>Database:</strong> SQL Server (or H2 for testing)</li>
+                    <li><strong>Dependencies:</strong> Jackson 2.17+, SLF4J, JDBC driver</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- GETTING STARTED SECTION -->
+        <section id="getting-started" class="mb-16">
+            <div class="bg-white rounded-lg shadow-md p-8">
+                <h2 class="text-4xl font-bold text-gray-900 mb-6">Getting Started</h2>
+
+                <h3 class="text-2xl font-bold mb-4">Prerequisites</h3>
+                <div class="mb-6">
+                    <h4 class="font-bold mb-2">Required</h4>
+                    <ul class="list-disc list-inside text-gray-700">
+                        <li>Java 17 or higher</li>
+                        <li>SQL Server database (or H2 for testing)</li>
+                        <li>Maven 3.6+</li>
+                    </ul>
+                </div>
+
+                <h3 class="text-2xl font-bold mb-4">Database Setup</h3>
+
+                <div class="space-y-6">
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Step 1: Create Metadata Stored Procedure</h4>
+                        <p class="text-gray-700 mb-3">This stored procedure returns metadata for your business stored procedures.</p>
+                        <pre><code>CREATE PROCEDURE usp_GetProcedureMetadata
+    @ProcedureId VARCHAR(100) = NULL,
+    @MetadataJson NVARCHAR(MAX) OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- If NULL, return all procedures (for cache warming)
+    IF @ProcedureId IS NULL
+    BEGIN
+        SELECT @MetadataJson = (
+            SELECT
+                procedure_id as procedureId,
+                procedure_name as procedureName,
+                description,
+                parameters,
+                columns,
+                output_parameters as outputParameters
+            FROM STORED_PROCEDURE_METADATA
+            FOR JSON PATH
+        );
+    END
+    ELSE
+    BEGIN
+        SELECT @MetadataJson = (
+            SELECT
+                procedure_id as procedureId,
+                procedure_name as procedureName,
+                description,
+                parameters,
+                columns,
+                output_parameters as outputParameters
+            FROM STORED_PROCEDURE_METADATA
+            WHERE procedure_id = @ProcedureId
+            FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+        );
+    END
+END;</code></pre>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Step 2: Create Metadata Storage Table</h4>
+                        <pre><code>CREATE TABLE STORED_PROCEDURE_METADATA (
+    procedure_id VARCHAR(100) PRIMARY KEY,
+    procedure_name VARCHAR(200) NOT NULL,
+    description VARCHAR(500),
+    parameters NVARCHAR(MAX), -- JSON array
+    columns NVARCHAR(MAX),     -- JSON array
+    output_parameters NVARCHAR(MAX), -- JSON array
+    created_date DATETIME DEFAULT GETDATE(),
+    modified_date DATETIME DEFAULT GETDATE()
+);</code></pre>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Step 3: Create Your Business Stored Procedure</h4>
+                        <pre><code>CREATE PROCEDURE usp_GetEmployees
+    @DepartmentId INT,
+    @MinSalary DECIMAL(18,2) = NULL
+AS
+BEGIN
+    SELECT
+        employee_id,
+        first_name,
+        last_name,
+        department_id,
+        salary,
+        hire_date
+    FROM employees
+    WHERE department_id = @DepartmentId
+        AND (@MinSalary IS NULL OR salary >= @MinSalary);
+END;</code></pre>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Understanding Metadata Structure</h4>
+                        <p class="text-gray-700 mb-3">Before registering metadata, understand the JSON structure:</p>
+                        <pre><code>{
+  "procedureId": "emp_001",
+  "procedureName": "usp_GetEmployees",
+  "description": "Fetch employees by department and salary threshold",
+  "parameters": [
+    {
+      "name": "DepartmentId",
+      "fieldName": "departmentId",
+      "type": "INTEGER",
+      "nullable": false
+    },
+    {
+      "name": "MinSalary",
+      "fieldName": "minSalary",
+      "type": "DECIMAL",
+      "nullable": true
+    }
+  ],
+  "columns": [
+    {
+      "columnName": "EMPLOYEE_ID",
+      "fieldName": "employeeId",
+      "columnType": "INTEGER"
+    },
+    {
+      "columnName": "FIRST_NAME",
+      "fieldName": "firstName",
+      "columnType": "VARCHAR"
+    },
+    {
+      "columnName": "SALARY",
+      "fieldName": "salary",
+      "columnType": "DECIMAL"
+    }
+  ],
+  "outputParameters": [
+    {
+      "name": "TotalCount",
+      "fieldName": "totalCount",
+      "type": "INTEGER"
+    }
+  ]
+}</code></pre>
+                        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 my-4">
+                            <p class="font-bold mb-2">Key Fields:</p>
+                            <ul class="list-disc list-inside text-gray-700 space-y-1">
+                                <li><strong>procedureId:</strong> Unique identifier for caching and lookup</li>
+                                <li><strong>procedureName:</strong> Actual SQL stored procedure name</li>
+                                <li><strong>parameters:</strong> Array of input parameters with name, fieldName, type, nullable</li>
+                                <li><strong>columns:</strong> Maps SQL columns (UPPER_SNAKE_CASE) to camelCase</li>
+                                <li><strong>outputParameters:</strong> Array of output parameters</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Step 4: Register Procedure Metadata</h4>
+                        <pre><code>INSERT INTO STORED_PROCEDURE_METADATA
+(procedure_id, procedure_name, description, parameters, columns, output_parameters)
+VALUES (
+    'emp_001',
+    'usp_GetEmployees',
+    'Fetch employees by department and salary threshold',
+
+    -- Parameters JSON
+    '[
+        {
+            "name": "DepartmentId",
+            "fieldName": "departmentId",
+            "type": "INTEGER",
+            "nullable": false
+        },
+        {
+            "name": "MinSalary",
+            "fieldName": "minSalary",
+            "type": "DECIMAL",
+            "nullable": true
+        }
+    ]',
+
+    -- Columns JSON
+    '[
+        {"columnName": "EMPLOYEE_ID", "fieldName": "employeeId", "columnType": "INTEGER"},
+        {"columnName": "FIRST_NAME", "fieldName": "firstName", "columnType": "VARCHAR"},
+        {"columnName": "LAST_NAME", "fieldName": "lastName", "columnType": "VARCHAR"},
+        {"columnName": "DEPARTMENT_ID", "fieldName": "departmentId", "columnType": "INTEGER"},
+        {"columnName": "SALARY", "fieldName": "salary", "columnType": "DECIMAL"},
+        {"columnName": "HIRE_DATE", "fieldName": "hireDate", "columnType": "DATE"}
+    ]',
+
+    -- Output parameters
+    '[]'
+);</code></pre>
+                    </div>
+                </div>
+
+                <h3 class="text-2xl font-bold mt-8 mb-4">Java Setup</h3>
+
+                <div class="space-y-6">
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Step 1: Add Maven Dependency</h4>
+                        <pre><code>&lt;dependency&gt;
+    &lt;groupId&gt;com.reporting&lt;/groupId&gt;
+    &lt;artifactId&gt;reporting-framework&lt;/artifactId&gt;
+    &lt;version&gt;1.0.0-SNAPSHOT&lt;/version&gt;
+&lt;/dependency&gt;
+
+&lt;!-- Optional: HikariCP for connection pooling --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;com.zaxxer&lt;/groupId&gt;
+    &lt;artifactId&gt;HikariCP&lt;/artifactId&gt;
+    &lt;version&gt;5.0.1&lt;/version&gt;
+&lt;/dependency&gt;</code></pre>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Step 2: Configure Connection Provider</h4>
+                        <pre><code>import com.reporting.framework.connection.ConnectionProvider;
+import com.reporting.framework.connection.DataSourceConnectionProvider;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+
+public class DatabaseConfig {
+    public static ConnectionProvider createConnectionProvider() {
+        HikariConfig config = new HikariConfig();
+        config.setJdbcUrl("jdbc:sqlserver://localhost:1433;databaseName=YourDB");
+        config.setUsername("your_username");
+        config.setPassword("your_password");
+        config.setMaximumPoolSize(10);
+
+        HikariDataSource dataSource = new HikariDataSource(config);
+        return new DataSourceConnectionProvider(dataSource);
+    }
+}</code></pre>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Step 3: Initialize ReportService</h4>
+                        <pre><code>import com.reporting.framework.api.ReportService;
+
+public class ReportingService {
+    private final ReportService reportService;
+
+    public ReportingService() {
+        ConnectionProvider provider = DatabaseConfig.createConnectionProvider();
+
+        // Enable metadata caching (recommended)
+        this.reportService = new ReportService(provider, true);
+    }
+
+    public ReportService getReportService() {
+        return reportService;
+    }
+}</code></pre>
+                    </div>
+                </div>
+
+                <h3 class="text-2xl font-bold mt-8 mb-4">Your First Report</h3>
+
+                <div class="space-y-6">
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Execute a Simple Report</h4>
+                        <pre><code>import com.reporting.framework.data.DataSet;
+import com.reporting.framework.data.DataRow;
+import java.util.Map;
+
+public class EmployeeReportExample {
+    public static void main(String[] args) {
+        ReportingService service = new ReportingService();
+        ReportService reportService = service.getReportService();
+
+        // Execute stored procedure
+        DataSet employees = reportService.execute("emp_001",
+            Map.of("departmentId", 10, "minSalary", 50000));
+
+        System.out.println("Found " + employees.count() + " employees");
+
+        // Access data with type-safe methods
+        for (DataRow employee : employees.getRows()) {
+            Integer id = employee.getInt("employeeId");
+            String firstName = employee.getString("firstName");
+            String lastName = employee.getString("lastName");
+            BigDecimal salary = employee.getBigDecimal("salary");
+
+            System.out.printf("Employee: %s %s (ID: %d) - Salary: $%,.2f%n",
+                firstName, lastName, id, salary);
+        }
+    }
+}</code></pre>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Export to JSON</h4>
+                        <pre><code>DataSet employees = reportService.execute("emp_001", params);
+
+// Pretty-printed JSON
+String json = employees.toPrettyJSON();
+System.out.println(json);
+
+// Compact JSON
+String compactJson = employees.toJSON();
+
+// Save to file
+Files.writeString(Path.of("employees.json"), json);</code></pre>
+                        <p class="text-gray-700 mt-3">Output:</p>
+                        <pre><code>[
+  {
+    "employeeId": 1,
+    "firstName": "Alice",
+    "lastName": "Johnson",
+    "departmentId": 10,
+    "salary": 85000.00,
+    "hireDate": "2020-01-15"
+  }
+]</code></pre>
+                    </div>
+                </div>
+
+                <h3 class="text-2xl font-bold mt-8 mb-4">Data Transformations</h3>
+
+                <div class="space-y-6">
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Filtering Data</h4>
+                        <pre><code>DataSet employees = reportService.execute("emp_001", params);
+
+// Filter high earners
+DataSet highEarners = DataQuery.from(employees)
+    .filter(row -> row.getBigDecimal("salary")
+        .compareTo(BigDecimal.valueOf(100000)) >= 0)
+    .execute();
+
+// Multiple filters
+DataSet filtered = DataQuery.from(employees)
+    .filter(row -> row.getInt("departmentId") == 10)
+    .filter(row -> row.getLocalDate("hireDate").getYear() >= 2020)
+    .execute();</code></pre>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Adding Computed Columns</h4>
+                        <pre><code>DataSet enriched = DataQuery.from(employees)
+    .withColumn("fullName", row ->
+        row.getString("firstName") + " " + row.getString("lastName"))
+
+    .withColumn("bonus", row ->
+        row.getBigDecimal("salary").multiply(BigDecimal.valueOf(0.1)))
+
+    .withColumn("yearsEmployed", row -> {
+        LocalDate hired = row.getLocalDate("hireDate");
+        return Period.between(hired, LocalDate.now()).getYears();
+    })
+
+    .execute();</code></pre>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Aggregations</h4>
+                        <pre><code>// Group by department with aggregations
+DataSet summary = DataQuery.from(employees)
+    .groupBy("departmentId")
+        .avg("salary")
+        .count("employeeId")
+        .max("salary")
+        .min("salary")
+        .sum("salary")
+    .execute();
+
+// Access aggregated results
+for (DataRow dept : summary.getRows()) {
+    Integer deptId = dept.getInt("departmentId");
+    Long empCount = dept.getLong("employeeId_count");
+    Double avgSalary = dept.getDouble("salary_avg");
+    Double maxSalary = dept.getDouble("salary_max");
+
+    System.out.printf("Dept %d: %d employees, Avg: $%,.2f, Max: $%,.2f%n",
+        deptId, empCount, avgSalary, maxSalary);
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- API REFERENCE SECTION -->
+        <section id="api-reference" class="mb-16">
+            <div class="bg-white rounded-lg shadow-md p-8">
+                <h2 class="text-4xl font-bold text-gray-900 mb-6">API Reference</h2>
+
+                <h3 class="text-2xl font-bold mb-4">ReportService</h3>
+                <p class="text-gray-700 mb-4">Main entry point for executing stored procedures and retrieving data.</p>
+
+                <div class="space-y-6">
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Constructor</h4>
+                        <pre><code>// With default settings (cache enabled)
+public ReportService(ConnectionProvider connectionProvider)
+
+// With cache control
+public ReportService(ConnectionProvider connectionProvider, boolean enableMetadataCache)</code></pre>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">execute()</h4>
+                        <p class="text-gray-700 mb-3">Execute a stored procedure and return results as DataSet.</p>
+                        <pre><code>public DataSet execute(String procedureId, Map&lt;String, Object&gt; inputParameters)
+public DataSet execute(String procedureId)</code></pre>
+                        <div class="bg-blue-50 border-l-4 border-blue-400 p-4 my-4">
+                            <p class="font-bold mb-2">Throws:</p>
+                            <ul class="list-disc list-inside text-gray-700">
+                                <li>MetadataNotFoundException - Procedure metadata not found</li>
+                                <li>MissingParameterException - Required parameter missing or null</li>
+                                <li>ReportExecutionException - Execution failed</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Cache Management</h4>
+                        <pre><code>// Invalidate cache for specific procedure
+public void invalidateMetadataCache(String procedureId)
+
+// Clear entire cache
+public void clearMetadataCache()
+
+// Get cache size
+public int getMetadataCacheSize()</code></pre>
+                    </div>
+                </div>
+
+                <h3 class="text-2xl font-bold mt-8 mb-4">DataSet</h3>
+                <p class="text-gray-700 mb-4">Immutable collection of DataRow objects with metadata.</p>
+
+                <div class="space-y-6">
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Basic Properties</h4>
+                        <pre><code>// Get row count
+public int count()
+
+// Check if empty
+public boolean isEmpty()
+
+// Get report name
+public String getReportName()</code></pre>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Accessing Rows</h4>
+                        <pre><code>// Get all rows
+public List&lt;DataRow&gt; getRows()
+
+// Get first row
+public DataRow first()
+
+// Get last row
+public DataRow last()
+
+// Get specific row by index
+public DataRow getRow(int index)</code></pre>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Output Parameters</h4>
+                        <pre><code>// Get output parameter value
+public Object getOutputParameter(String name)
+
+// Check if output parameter exists
+public boolean hasOutputParameter(String name)
+
+// Get all output parameters
+public Map&lt;String, Object&gt; getOutputParameters()</code></pre>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">JSON Export</h4>
+                        <pre><code>// Compact JSON
+public String toJSON()
+
+// Pretty-printed JSON
+public String toPrettyJSON()
+
+// Convert to list of maps
+public List&lt;Map&lt;String, Object&gt;&gt; toMaps()</code></pre>
+                    </div>
+                </div>
+
+                <h3 class="text-2xl font-bold mt-8 mb-4">DataRow</h3>
+                <p class="text-gray-700 mb-4">Immutable wrapper over Map with type-safe accessors.</p>
+
+                <div class="space-y-6">
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Type-Safe Getters</h4>
+                        <p class="text-gray-700 mb-3">All getters have two variants: one that throws on missing key, one with default value.</p>
+                        <pre><code>// String
+public String getString(String key)
+public String getString(String key, String defaultValue)
+
+// Integer
+public Integer getInt(String key)
+public Integer getInt(String key, Integer defaultValue)
+
+// BigDecimal
+public BigDecimal getBigDecimal(String key)
+public BigDecimal getBigDecimal(String key, BigDecimal defaultValue)
+
+// LocalDate
+public LocalDate getLocalDate(String key)
+
+// LocalDateTime
+public LocalDateTime getLocalDateTime(String key)</code></pre>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Utility Methods</h4>
+                        <pre><code>// Check if key exists
+public boolean has(String key)
+
+// Get all keys
+public Set&lt;String&gt; keys()
+
+// Get raw map
+public Map&lt;String, Object&gt; toMap()</code></pre>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Immutable Transformations</h4>
+                        <pre><code>// Add/update field
+public DataRow with(String key, Object value)
+
+// Select specific fields
+public DataRow select(String... keys)
+
+// Remove field
+public DataRow without(String key)</code></pre>
+                    </div>
+                </div>
+
+                <h3 class="text-2xl font-bold mt-8 mb-4">DataQuery</h3>
+                <p class="text-gray-700 mb-4">Fluent DSL builder for transformations. All operations are immutable.</p>
+
+                <div class="space-y-6">
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Filter</h4>
+                        <pre><code>DataSet result = DataQuery.from(employees)
+    .filter(row -> row.getInt("departmentId") == 10)
+    .filter(row -> row.getBigDecimal("salary")
+        .compareTo(BigDecimal.valueOf(80000)) >= 0)
+    .execute();</code></pre>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Select</h4>
+                        <pre><code>DataSet result = DataQuery.from(employees)
+    .select("firstName", "lastName", "salary")
+    .execute();</code></pre>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Order By</h4>
+                        <pre><code>// Ascending
+DataSet result = DataQuery.from(employees)
+    .orderBy("lastName").asc()
+    .execute();
+
+// Descending
+DataSet result = DataQuery.from(employees)
+    .orderBy("salary").desc()
+    .execute();</code></pre>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Computed Columns</h4>
+                        <pre><code>DataSet result = DataQuery.from(employees)
+    .withColumn("fullName", row ->
+        row.getString("firstName") + " " + row.getString("lastName"))
+
+    .withColumn("bonus", row ->
+        row.getBigDecimal("salary").multiply(BigDecimal.valueOf(0.1)))
+
+    .execute();</code></pre>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Group By and Aggregations</h4>
+                        <pre><code>DataSet summary = DataQuery.from(employees)
+    .groupBy("departmentId")
+        .avg("salary")
+        .count("employeeId")
+        .max("salary")
+        .min("salary")
+        .sum("salary")
+    .execute();</code></pre>
+                        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 my-4">
+                            <p class="font-bold mb-2">Aggregation Column Naming:</p>
+                            <ul class="list-disc list-inside text-gray-700">
+                                <li>sum("salary") creates column "salary_sum"</li>
+                                <li>avg("salary") creates column "salary_avg"</li>
+                                <li>count("id") creates column "id_count"</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 class="text-2xl font-bold mt-8 mb-4">DataOperations</h3>
+                <p class="text-gray-700 mb-4">Static utility methods for complex operations.</p>
+
+                <div class="space-y-6">
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Joins</h4>
+                        <pre><code>// Inner Join
+DataSet result = DataOperations.innerJoin(
+    employees, departments,
+    "departmentId", "departmentId"
+);
+
+// Left Join
+DataSet result = DataOperations.leftJoin(
+    employees, sales,
+    "employeeId", "employeeId"
+);
+
+// Right Join
+DataSet result = DataOperations.rightJoin(
+    left, right,
+    "leftKey", "rightKey"
+);
+
+// Full Outer Join
+DataSet result = DataOperations.fullOuterJoin(
+    left, right,
+    "leftKey", "rightKey"
+);
+
+// Cross Join
+DataSet result = DataOperations.crossJoin(left, right);</code></pre>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Unions</h4>
+                        <pre><code>// Union (includes duplicates)
+DataSet all = DataOperations.union(dataset1, dataset2);
+
+// Union distinct (removes duplicates)
+DataSet unique = DataOperations.unionDistinct(dataset1, dataset2);</code></pre>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Pivot</h4>
+                        <pre><code>List&lt;DataRow&gt; pivoted = DataOperations.pivot(
+    monthlySales,
+    "product",  // Row grouping
+    "month",    // Becomes columns
+    "amount"    // Cell values
+);
+
+// Output:
+// product | Jan | Feb
+// Widget  | 100 | 150
+// Gadget  | 200 | null</code></pre>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Running Totals</h4>
+                        <pre><code>DataSet withTotals = DataOperations.withRunningTotal(
+    dailySales,
+    "revenue",          // Column to accumulate
+    "runningTotal"      // New column name
+);</code></pre>
+                    </div>
+                </div>
+
+                <h3 class="text-2xl font-bold mt-8 mb-4">Type Mapping</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white border">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="px-4 py-2 border text-left">SQL Type</th>
+                                <th class="px-4 py-2 border text-left">Java Type</th>
+                                <th class="px-4 py-2 border text-left">DataRow Getter</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td class="px-4 py-2 border">INTEGER, INT</td><td class="px-4 py-2 border">Integer</td><td class="px-4 py-2 border">getInt()</td></tr>
+                            <tr class="bg-gray-50"><td class="px-4 py-2 border">BIGINT</td><td class="px-4 py-2 border">Long</td><td class="px-4 py-2 border">getLong()</td></tr>
+                            <tr><td class="px-4 py-2 border">DECIMAL, NUMERIC</td><td class="px-4 py-2 border">BigDecimal</td><td class="px-4 py-2 border">getBigDecimal()</td></tr>
+                            <tr class="bg-gray-50"><td class="px-4 py-2 border">DOUBLE</td><td class="px-4 py-2 border">Double</td><td class="px-4 py-2 border">getDouble()</td></tr>
+                            <tr><td class="px-4 py-2 border">VARCHAR, NVARCHAR</td><td class="px-4 py-2 border">String</td><td class="px-4 py-2 border">getString()</td></tr>
+                            <tr class="bg-gray-50"><td class="px-4 py-2 border">DATE</td><td class="px-4 py-2 border">LocalDate</td><td class="px-4 py-2 border">getLocalDate()</td></tr>
+                            <tr><td class="px-4 py-2 border">DATETIME, TIMESTAMP</td><td class="px-4 py-2 border">LocalDateTime</td><td class="px-4 py-2 border">getLocalDateTime()</td></tr>
+                            <tr class="bg-gray-50"><td class="px-4 py-2 border">BIT, BOOLEAN</td><td class="px-4 py-2 border">Boolean</td><td class="px-4 py-2 border">getBoolean()</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ARCHITECTURE SECTION -->
+        <section id="architecture" class="mb-16">
+            <div class="bg-white rounded-lg shadow-md p-8">
+                <h2 class="text-4xl font-bold text-gray-900 mb-6">Architecture</h2>
+
+                <h3 class="text-2xl font-bold mb-4">Architecture Overview</h3>
+                <p class="text-gray-700 mb-4">The framework uses a metadata-driven, layered architecture with three main layers:</p>
+                <pre><code>┌─────────────────────────────────────────────────┐
+│           Application Layer                      │
+│  (Your ETL code, REST APIs, Reports)            │
+└──────────────────┬──────────────────────────────┘
+                   │
+┌──────────────────▼──────────────────────────────┐
+│         Service Layer (ReportService)           │
+│  • Execute stored procedures                    │
+│  • Parameter filtering                          │
+│  • Metadata caching                            │
+└──────────────────┬──────────────────────────────┘
+                   │
+┌──────────────────▼──────────────────────────────┐
+│      Data Transformation Layer                  │
+│  • DataSet (immutable collections)             │
+│  • DataQuery (fluent DSL)                      │
+│  • DataOperations (joins, pivots)              │
+└──────────────────┬──────────────────────────────┘
+                   │
+┌──────────────────▼──────────────────────────────┐
+│        Metadata & Execution Layer               │
+│  • MetadataLoader (cached metadata)            │
+│  • StoredProcedureExecutor                     │
+│  • ResultSetToMapConverter                     │
+└──────────────────┬──────────────────────────────┘
+                   │
+┌──────────────────▼──────────────────────────────┐
+│           Database Layer                        │
+│  • SQL Server stored procedures                │
+│  • Metadata stored procedure                   │
+│  • Connection pooling                          │
+└─────────────────────────────────────────────────┘</code></pre>
+
+                <h3 class="text-2xl font-bold mt-8 mb-4">Core Components</h3>
+
+                <div class="space-y-6">
+                    <div class="border-l-4 border-blue-500 pl-4">
+                        <h4 class="font-bold text-lg mb-2">ReportService</h4>
+                        <p class="text-gray-700 mb-2"><strong>Purpose:</strong> Main entry point for executing stored procedures</p>
+                        <p class="text-gray-700 mb-2"><strong>Responsibilities:</strong></p>
+                        <ul class="list-disc list-inside text-gray-700">
+                            <li>Load metadata from cache or database</li>
+                            <li>Filter parameters based on metadata definitions</li>
+                            <li>Execute stored procedures via executor</li>
+                            <li>Return results as immutable DataSet</li>
+                        </ul>
+                    </div>
+
+                    <div class="border-l-4 border-green-500 pl-4">
+                        <h4 class="font-bold text-lg mb-2">MetadataLoader</h4>
+                        <p class="text-gray-700 mb-2"><strong>Purpose:</strong> Load and cache stored procedure metadata</p>
+                        <p class="text-gray-700 mb-2"><strong>Cache Strategy:</strong></p>
+                        <ul class="list-disc list-inside text-gray-700">
+                            <li>Warm cache on startup (loads all procedures)</li>
+                            <li>Lazy load on cache miss</li>
+                            <li>Thread-safe concurrent access</li>
+                            <li>Manual invalidation support</li>
+                        </ul>
+                    </div>
+
+                    <div class="border-l-4 border-purple-500 pl-4">
+                        <h4 class="font-bold text-lg mb-2">DataSet & DataQuery</h4>
+                        <p class="text-gray-700 mb-2"><strong>DataSet:</strong> Immutable collection of DataRow objects</p>
+                        <p class="text-gray-700 mb-2"><strong>DataQuery:</strong> Fluent DSL builder for transformations</p>
+                        <p class="text-gray-700 mb-2"><strong>Operations:</strong> filter, select, orderBy, limit, distinct, withColumn, groupBy</p>
+                    </div>
+
+                    <div class="border-l-4 border-yellow-500 pl-4">
+                        <h4 class="font-bold text-lg mb-2">DataOperations</h4>
+                        <p class="text-gray-700 mb-2"><strong>Purpose:</strong> Complex operations (joins, pivots, unions)</p>
+                        <p class="text-gray-700 mb-2"><strong>Operations:</strong></p>
+                        <ul class="list-disc list-inside text-gray-700">
+                            <li>Joins: inner, left, right, full outer, cross</li>
+                            <li>Unions: union, unionDistinct</li>
+                            <li>Pivots: row-to-column transformation</li>
+                            <li>Running totals: cumulative calculations</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3 class="text-2xl font-bold mt-8 mb-4">Execution Flow</h3>
+                <pre><code>1. Application calls ReportService.execute(procedureId, params)
+                    │
+                    ▼
+2. MetadataLoader retrieves metadata
+   ├─ Check cache
+   ├─ If miss: call usp_GetProcedureMetadata
+   └─ Parse JSON and cache
+                    │
+                    ▼
+3. ParameterFilter validates and filters parameters
+   ├─ Check required parameters present
+   ├─ Filter out undefined parameters
+   └─ Return filtered parameter map
+                    │
+                    ▼
+4. StoredProcedureExecutor executes procedure
+   ├─ Build CallableStatement
+   ├─ Bind input parameters
+   ├─ Register output parameters
+   ├─ Execute stored procedure
+   └─ Return ExecutionResult (ResultSet + output params)
+                    │
+                    ▼
+5. ResultSetToMapConverter converts to Maps
+   ├─ Map SQL column names to camelCase
+   ├─ Apply type conversions
+   └─ Return List&lt;Map&lt;String, Object&gt;&gt;
+                    │
+                    ▼
+6. DataRow.of() wraps each Map
+                    │
+                    ▼
+7. Create DataSet with rows + output params
+                    │
+                    ▼
+8. Return DataSet to application
+                    │
+                    ▼
+9. Application applies transformations (optional)
+   ├─ DataQuery: filter, select, groupBy, etc.
+   └─ DataOperations: join, pivot, etc.
+                    │
+                    ▼
+10. Export to JSON or process data</code></pre>
+
+                <h3 class="text-2xl font-bold mt-8 mb-4">Design Principles</h3>
+
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="bg-blue-50 p-6 rounded-lg">
+                        <h4 class="font-bold text-lg mb-2">1. Metadata-Driven Configuration</h4>
+                        <p class="text-gray-700 mb-2">Add reports via metadata, not code</p>
+                        <ul class="list-disc list-inside text-gray-700 text-sm">
+                            <li>No code deployment for new reports</li>
+                            <li>Centralized configuration</li>
+                            <li>Runtime flexibility</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-green-50 p-6 rounded-lg">
+                        <h4 class="font-bold text-lg mb-2">2. Immutability</h4>
+                        <p class="text-gray-700 mb-2">All data structures are immutable</p>
+                        <ul class="list-disc list-inside text-gray-700 text-sm">
+                            <li>Thread-safe by default</li>
+                            <li>No side effects</li>
+                            <li>Easier reasoning about code</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-purple-50 p-6 rounded-lg">
+                        <h4 class="font-bold text-lg mb-2">3. Type Safety</h4>
+                        <p class="text-gray-700 mb-2">Compile-time type checking, no casting</p>
+                        <ul class="list-disc list-inside text-gray-700 text-sm">
+                            <li>Fewer runtime errors</li>
+                            <li>Better IDE support</li>
+                            <li>Self-documenting code</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-yellow-50 p-6 rounded-lg">
+                        <h4 class="font-bold text-lg mb-2">4. Fluent API</h4>
+                        <p class="text-gray-700 mb-2">Readable, chainable operations</p>
+                        <ul class="list-disc list-inside text-gray-700 text-sm">
+                            <li>Self-documenting code</li>
+                            <li>Natural to read and write</li>
+                            <li>Reduced boilerplate</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-red-50 p-6 rounded-lg">
+                        <h4 class="font-bold text-lg mb-2">5. Separation of Concerns</h4>
+                        <p class="text-gray-700 mb-2">Clear responsibility boundaries</p>
+                        <ul class="list-disc list-inside text-gray-700 text-sm">
+                            <li>DataSet: Storage</li>
+                            <li>DataQuery: Transformation builder</li>
+                            <li>DataOperations: Complex operations</li>
+                            <li>ReportService: Orchestration</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-indigo-50 p-6 rounded-lg">
+                        <h4 class="font-bold text-lg mb-2">6. Fail-Fast Validation</h4>
+                        <p class="text-gray-700 mb-2">Validate early, fail with clear messages</p>
+                        <ul class="list-disc list-inside text-gray-700 text-sm">
+                            <li>Missing required parameters</li>
+                            <li>Invalid metadata JSON</li>
+                            <li>Procedure not found</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3 class="text-2xl font-bold mt-8 mb-4">Performance Considerations</h3>
+
+                <div class="space-y-4">
+                    <div>
+                        <h4 class="font-bold mb-2">Metadata Caching</h4>
+                        <ul class="list-disc list-inside text-gray-700">
+                            <li>Warm on startup: Loads all procedures once</li>
+                            <li>Concurrent access: Thread-safe ConcurrentHashMap</li>
+                            <li>Manual invalidation: Clear cache after metadata changes</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold mb-2">Memory Management</h4>
+                        <ul class="list-disc list-inside text-gray-700">
+                            <li>DataSet is in-memory (suitable for typical report sizes)</li>
+                            <li>For very large datasets (&gt;100K rows), consider streaming or pagination</li>
+                            <li>Transformations create new DataSet instances</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold mb-2">Recommended Limits</h4>
+                        <ul class="list-disc list-inside text-gray-700">
+                            <li>Rows per DataSet: &lt; 50,000 for optimal performance</li>
+                            <li>Metadata cache size: &lt; 1,000 procedures</li>
+                            <li>Connection pool: 10-50 connections depending on load</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3 class="text-2xl font-bold mt-8 mb-4">Technology Stack</h3>
+
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <h4 class="font-bold mb-2">Core Dependencies</h4>
+                        <ul class="list-disc list-inside text-gray-700">
+                            <li>Java 17: Modern Java features</li>
+                            <li>Jackson 2.17+: JSON processing</li>
+                            <li>SLF4J: Logging facade</li>
+                            <li>Google Guava: Utility library</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold mb-2">Testing</h4>
+                        <ul class="list-disc list-inside text-gray-700">
+                            <li>JUnit 5: Test framework</li>
+                            <li>AssertJ: Fluent assertions</li>
+                            <li>H2 Database: In-memory testing</li>
+                            <li>Mockito: Mocking framework</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3 class="text-2xl font-bold mt-8 mb-4">Security Considerations</h3>
+
+                <div class="space-y-4">
+                    <div>
+                        <h4 class="font-bold mb-2">SQL Injection Prevention</h4>
+                        <ul class="list-disc list-inside text-gray-700">
+                            <li>All parameters passed via CallableStatement (parameterized)</li>
+                            <li>No dynamic SQL construction</li>
+                            <li>Parameters validated against metadata</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold mb-2">Connection Security</h4>
+                        <ul class="list-disc list-inside text-gray-700">
+                            <li>Use encrypted connections (SSL/TLS)</li>
+                            <li>Store credentials securely (environment variables, vault)</li>
+                            <li>Use connection pooling with proper timeouts</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-8 mt-16">
+        <div class="container mx-auto px-6 text-center">
+            <p class="text-gray-400">Metadata-Driven Java Reporting Framework</p>
+            <p class="text-gray-500 text-sm mt-2">Version 1.0.0-SNAPSHOT | Last Updated: 2024-06-29</p>
+        </div>
+    </footer>
+
+    <script>
+        // Smooth scroll and active navigation highlighting
+        document.addEventListener('DOMContentLoaded', function() {
+            const navLinks = document.querySelectorAll('.nav-link');
+            const sections = document.querySelectorAll('section');
+
+            // Highlight active section on scroll
+            window.addEventListener('scroll', function() {
+                let current = '';
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop;
+                    const sectionHeight = section.clientHeight;
+                    if (pageYOffset >= (sectionTop - 200)) {
+                        current = section.getAttribute('id');
+                    }
+                });
+
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href').substring(1) === current) {
+                        link.classList.add('active');
+                    }
+                });
+            });
+        });
+    </script>
+
+</body>
+</html>
