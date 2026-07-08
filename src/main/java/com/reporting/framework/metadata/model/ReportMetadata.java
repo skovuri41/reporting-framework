@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Immutable DTO representing complete metadata for a single report.
@@ -103,6 +104,55 @@ public class ReportMetadata {
      */
     public List<Dataset> getDatasets() {
         return datasets;
+    }
+
+    /**
+     * Retrieves a specific dataset from this report by its datasourceId.
+     * <p>
+     * This method provides direct access to a dataset without requiring iteration
+     * through the datasets list. The lookup is case-sensitive.
+     * </p>
+     * <p>
+     * Example usage:
+     * <pre>{@code
+     * ReportMetadata metadata = reportService.getMetadata("employee-report");
+     * Dataset employeeDataset = metadata.getDatasetById("ds-employees");
+     * DataSet result = reportService.execute("employee-report", employeeDataset, params);
+     * }</pre>
+     * </p>
+     *
+     * @param datasourceId the unique identifier of the dataset to retrieve (case-sensitive)
+     * @return the matching Dataset object
+     * @throws IllegalArgumentException if no dataset with the given datasourceId exists.
+     *         The exception message includes both the requested datasourceId and a list
+     *         of all available datasourceIds for debugging.
+     * @throws NullPointerException if datasourceId is null
+     */
+    public Dataset getDatasetById(String datasourceId) {
+        Objects.requireNonNull(datasourceId, "datasourceId cannot be null");
+
+        return datasets.stream()
+            .filter(d -> d.getDatasourceId().equals(datasourceId))
+            .findFirst()
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Dataset not found: " + datasourceId +
+                ". Available datasets: " + getAvailableDatasetIds()
+            ));
+    }
+
+    /**
+     * Returns a list of all datasourceIds in this report.
+     * <p>
+     * This is a helper method used primarily for error message generation
+     * in getDatasetById().
+     * </p>
+     *
+     * @return list of all datasourceIds in the order they appear in the datasets list
+     */
+    private List<String> getAvailableDatasetIds() {
+        return datasets.stream()
+            .map(Dataset::getDatasourceId)
+            .collect(Collectors.toList());
     }
 
     @Override

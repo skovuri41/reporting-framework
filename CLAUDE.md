@@ -233,6 +233,7 @@ Transformations execute in this order regardless of chaining:
 - Tests use helper method `createDataSetFromQuery(sql, datasetName)` to bypass stored procedures
 - Integration tests create DataSets directly from SQL queries
 - Metadata layer + stored procedure integration is **not tested with H2**
+- **Multi-dataset execution** (`executeAllDatasets()`) can be tested with simulated datasets, but full metadata-driven testing requires SQL Server
 
 **To test fully:** Use SQL Server (not H2)
 
@@ -343,6 +344,85 @@ DataSet result = DataQuery.from(enriched)
 // 4. Export
 String json = result.toPrettyJSON();
 ```
+
+### Dataset Lookup
+
+When working with multi-dataset reports, you can lookup a specific dataset by its datasourceId without manually iterating through the datasets list:
+
+```java
+// Load report metadata
+ReportMetadata metadata = reportService.getMetadata("employee-analysis");
+
+// Lookup specific dataset by ID
+Dataset employeeDataset = metadata.getDatasetById("ds-employees");
+
+// Execute just this dataset
+DataSet employees = reportService.execute("employee-analysis", employeeDataset, params);
+```
+
+**Key Points:**
+- Lookup is case-sensitive
+- Throws `IllegalArgumentException` if dataset not found (error message includes available IDs)
+- Throws `NullPointerException` if datasourceId is null
+
+### Multi-Dataset Execution
+
+Execute all datasets in a report with a single method call. Results are returned as a Map keyed by datasourceId:
+
+```java
+// Shared parameters for all datasets
+Map<String, Object> params = Map.of(
+    "departmentId", 10,
+    "startDate", LocalDate.of(2024, 1, 1),
+    "endDate", LocalDate.of(2024, 12, 31)
+);
+
+// Execute all datasets at once
+Map<String, DataSet> results = reportService.executeAllDatasets("employee-analysis", params);
+
+// Access individual results by datasourceId
+DataSet employees = results.get("ds-employees");
+DataSet departments = results.get("ds-departments");
+DataSet metrics = results.get("ds-metrics");
+
+// Iterate in execution order (LinkedHashMap preserves order)
+results.forEach((datasourceId, dataSet) -> {
+    System.out.println("Dataset: " + datasourceId);
+    System.out.println("Rows: " + dataSet.count());
+    System.out.println("Columns: " + dataSet.first().keys());
+});
+```
+
+**Before (Manual Iteration - 15 lines):**
+```java
+ReportMetadata metadata = reportService.getMetadata("employee-analysis");
+Map<String, DataSet> results = new LinkedHashMap<>();
+
+for (Dataset dataset : metadata.getDatasets()) {
+    try {
+        DataSet result = reportService.execute("employee-analysis", dataset, params);
+        results.put(dataset.getDatasourceId(), result);
+    } catch (Exception e) {
+        throw new RuntimeException("Failed: " + dataset.getDatasourceId(), e);
+    }
+}
+
+DataSet employees = results.get("ds-employees");
+```
+
+**After (Helper Method - 2 lines):**
+```java
+Map<String, DataSet> results = reportService.executeAllDatasets("employee-analysis", params);
+DataSet employees = results.get("ds-employees");
+```
+
+**Code Reduction**: 87% (15 lines → 2 lines)
+
+**Key Points:**
+- **Parameter Sharing**: All datasets share the same parameter map. Each dataset extracts only the parameters it needs based on its metadata definition.
+- **Execution Order**: Datasets execute sequentially in the order they appear in metadata. Order is preserved in the returned LinkedHashMap.
+- **Fail-Fast**: If any dataset execution fails, the method stops immediately and throws `ReportExecutionException` with datasourceId context. No partial results returned.
+- **Empty Datasets**: Returns empty Map if report has zero datasets (not an error).
 
 ## Metadata-Driven Configuration
 

@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -110,6 +111,107 @@ public class ReportService {
      */
     public DataSet execute(String reportId) {
         return execute(reportId, Collections.emptyMap());
+    }
+
+    /**
+     * Execute all datasets in a report and return organized results.
+     * <p>
+     * This method executes all datasets defined in the report metadata sequentially
+     * and returns the results as a Map keyed by datasourceId. The execution order
+     * matches the order datasets appear in the metadata, and this order is preserved
+     * in the returned Map.
+     * </p>
+     * <p>
+     * All datasets share the same parameter map. Each dataset extracts only the
+     * parameters it needs based on its metadata definition. Extra parameters in
+     * the map are ignored. Required parameters must be present or execution will
+     * fail.
+     * </p>
+     * <p>
+     * The method uses fail-fast semantics: if any dataset execution fails, the
+     * method stops immediately and throws an exception. Datasets that have not
+     * yet executed will be skipped. No partial results are returned.
+     * </p>
+     * <p>
+     * Example usage:
+     * <pre>{@code
+     * Map<String, Object> params = Map.of(
+     *     "departmentId", 10,
+     *     "startDate", LocalDate.of(2024, 1, 1),
+     *     "endDate", LocalDate.of(2024, 12, 31)
+     * );
+     *
+     * Map<String, DataSet> results = reportService.executeAllDatasets("employee-analysis", params);
+     *
+     * // Access individual results
+     * DataSet employees = results.get("ds-employees");
+     * DataSet departments = results.get("ds-departments");
+     * DataSet metrics = results.get("ds-metrics");
+     *
+     * // Iterate in execution order
+     * results.forEach((datasourceId, dataSet) -> {
+     *     System.out.println("Dataset: " + datasourceId + ", Rows: " + dataSet.count());
+     * });
+     * }</pre>
+     * </p>
+     *
+     * @param reportId The ID of the report to execute
+     * @param parameters Shared parameter map containing all parameters for all datasets.
+     *                   Each dataset extracts only the parameters it needs.
+     * @return Map of datasourceId → DataSet results, preserving execution order.
+     *         Returns empty Map if report has zero datasets.
+     * @throws ReportExecutionException if any dataset execution fails. The exception
+     *         message includes the datasourceId of the failing dataset and the reportId.
+     * @throws com.reporting.framework.exception.MetadataNotFoundException if reportId
+     *         is not found in the metadata repository
+     * @throws NullPointerException if reportId or parameters is null
+     */
+    public Map<String, DataSet> executeAllDatasets(String reportId,
+                                                     Map<String, Object> parameters) {
+        logger.info("Executing all datasets for report: {} with {} input parameters",
+                reportId, parameters != null ? parameters.size() : 0);
+
+        // Load report metadata
+        ReportMetadata metadata = metadataLoader.load(reportId);
+        logger.debug("Loaded metadata for report: {} with {} datasets",
+                reportId, metadata.getDatasets().size());
+
+        // Create result map (LinkedHashMap preserves insertion order)
+        Map<String, DataSet> results = new LinkedHashMap<>();
+
+        // Execute each dataset sequentially
+        for (Dataset dataset : metadata.getDatasets()) {
+            String datasourceId = dataset.getDatasourceId();
+
+            try {
+                logger.debug("Executing dataset '{}' ({} of {}) for report '{}'",
+                        datasourceId,
+                        results.size() + 1,
+                        metadata.getDatasets().size(),
+                        reportId);
+
+                DataSet result = executeDataset(reportId, dataset, parameters);
+                results.put(datasourceId, result);
+
+                logger.debug("Dataset '{}' executed successfully: {} rows",
+                        datasourceId, result.count());
+
+            } catch (Exception e) {
+                logger.error("Failed to execute dataset '{}' for report '{}' (fail-fast)",
+                        datasourceId, reportId, e);
+
+                throw new ReportExecutionException(
+                        "Failed to execute dataset '" + datasourceId +
+                        "' in report '" + reportId + "': " + e.getMessage(),
+                        e
+                );
+            }
+        }
+
+        logger.info("Successfully executed all {} datasets for report '{}'",
+                results.size(), reportId);
+
+        return results;
     }
 
     /**
