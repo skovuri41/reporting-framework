@@ -1,0 +1,151 @@
+{
+  "reports": [
+    {
+      "reportId": "employee-analysis-001",
+      "reportName": "Employee Analysis Report",
+      "reportDescription": "Comprehensive analysis of employee data",
+      "datasets": [
+        {
+          "datasource": "usp_GetEmployees",
+          "datasourceId": "ds-001",
+          "datasourceType": "StoredProc",
+          "datasourceDescription": "Employee master data",
+          "parameters": [
+            {
+              "parameterName": "departmentId",
+              "dataType": "INTEGER",
+              "parameterDirection": "Input",
+              "nullable": true
+            }
+          ],
+          "columns": [
+            {
+              "sourceColumn": "employee_id",
+              "displayName": "employeeId",
+              "dataType": "INTEGER",
+              "sortable": true,
+              "groupable": false,
+              "filterable": true
+            },
+            {
+              "sourceColumn": "full_name",
+              "displayName": "fullName",
+              "dataType": "VARCHAR",
+              "sortable": true,
+              "groupable": false,
+              "filterable": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "reportId": "department-summary-002",
+      "reportName": "Department Summary Report",
+      "reportDescription": "Summary statistics by department",
+      "datasets": [
+        {
+          "datasource": "usp_GetDepartments",
+          "datasourceId": "ds-001",
+          "datasourceType": "StoredProc",
+          "datasourceDescription": "Department list with counts",
+          "parameters": [],
+          "columns": [
+            {
+              "sourceColumn": "department_id",
+              "displayName": "departmentId",
+              "dataType": "INTEGER",
+              "sortable": true,
+              "groupable": false,
+              "filterable": true
+            },
+            {
+              "sourceColumn": "department_name",
+              "displayName": "departmentName",
+              "dataType": "VARCHAR",
+              "sortable": true,
+              "groupable": true,
+              "filterable": true
+            },
+            {
+              "sourceColumn": "employee_count",
+              "displayName": "employeeCount",
+              "dataType": "INTEGER",
+              "sortable": true,
+              "groupable": false,
+              "filterable": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "reportId": "sales-analysis-003",
+      "reportName": "Sales Analysis Report",
+      "reportDescription": "Monthly sales performance analysis",
+      "datasets": [
+        {
+          "datasource": "usp_GetSalesData",
+          "datasourceId": "ds-001",
+          "datasourceType": "StoredProc",
+          "datasourceDescription": "Sales data with date range filter",
+          "parameters": [
+            {
+              "parameterName": "startDate",
+              "dataType": "DATE",
+              "parameterDirection": "Input",
+              "nullable": false
+            },
+            {
+              "parameterName": "endDate",
+              "dataType": "DATE",
+              "parameterDirection": "Input",
+              "nullable": false
+            },
+            {
+              "parameterName": "minAmount",
+              "dataType": "DECIMAL",
+              "parameterDirection": "Input",
+              "nullable": true
+            }
+          ],
+          "columns": [
+            {
+              "sourceColumn": "sale_id",
+              "displayName": "saleId",
+              "dataType": "INTEGER",
+              "sortable": true,
+              "groupable": false,
+              "filterable": true
+            },
+            {
+              "sourceColumn": "employee_name",
+              "displayName": "employeeName",
+              "dataType": "VARCHAR",
+              "sortable": true,
+              "groupable": true,
+              "filterable": true
+            },
+            {
+              "sourceColumn": "sale_amount",
+              "displayName": "saleAmount",
+              "dataType": "DECIMAL",
+              "sortable": true,
+              "groupable": true,
+              "filterable": true
+            },
+            {
+              "sourceColumn": "sale_month",
+              "displayName": "saleMonth",
+              "dataType": "VARCHAR",
+              "sortable": true,
+              "groupable": true,
+              "filterable": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "count": 3
+}

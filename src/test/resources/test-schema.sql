@@ -1,14 +1,14 @@
 -- Test database schema for H2 in SQL Server mode
 -- This schema is used for integration testing
 
--- Create metadata table
+-- Create metadata table (new JSON structure)
 CREATE TABLE REPORT_METADATA (
-    REPORT_NAME VARCHAR(100) PRIMARY KEY,
-    STORED_PROCEDURE VARCHAR(200) NOT NULL,
-    RESULT_CLASS VARCHAR(500) NOT NULL,
+    REPORT_ID VARCHAR(100) PRIMARY KEY,
+    REPORT_NAME VARCHAR(255) NOT NULL,
+    REPORT_DESCRIPTION VARCHAR(1000),
     METADATA_JSON NVARCHAR(MAX) NOT NULL,
     CREATED_DATE DATETIME DEFAULT CURRENT_TIMESTAMP,
-    UPDATED_DATE DATETIME DEFAULT CURRENT_TIMESTAMP
+    MODIFIED_DATE DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create test tables
@@ -121,79 +121,159 @@ ResultSet usp_GetMonthlySales(Connection conn, Integer year, Integer month, BigD
 }
 $$;
 
--- Insert test metadata
-INSERT INTO REPORT_METADATA (REPORT_NAME, STORED_PROCEDURE, RESULT_CLASS, METADATA_JSON)
+-- Insert test metadata (new JSON structure format)
+INSERT INTO REPORT_METADATA (REPORT_ID, REPORT_NAME, REPORT_DESCRIPTION, METADATA_JSON)
 VALUES (
-    'employee_report',
-    'usp_GetEmployees',
-    'com.reporting.framework.example.EmployeeReport',
+    'employee-report-001',
+    'Employee Report',
+    'Comprehensive employee data analysis',
     '{
-        "reportName": "employee_report",
-        "storedProcedure": "usp_GetEmployees",
-        "resultClass": "com.reporting.framework.example.EmployeeReport",
-        "inputParameters": [
-            {
-                "name": "DepartmentId",
-                "sqlType": "INTEGER",
-                "javaType": "java.lang.Integer",
-                "required": true
-            },
-            {
-                "name": "StartDate",
-                "sqlType": "DATE",
-                "javaType": "java.time.LocalDate",
-                "required": false
-            }
-        ],
-        "outputParameters": [
-            {
-                "name": "TotalCount",
-                "sqlType": "INTEGER",
-                "javaType": "java.lang.Integer"
-            }
-        ],
-        "resultSetMapping": {
-            "strategy": "JACKSON",
-            "columnNameFormat": "SNAKE_CASE",
-            "fieldNameFormat": "CAMEL_CASE"
-        }
+        "reportId": "employee-report-001",
+        "reportName": "Employee Report",
+        "reportDescription": "Comprehensive employee data analysis",
+        "datasets": [{
+            "datasource": "usp_GetEmployees",
+            "datasourceId": "ds-001",
+            "datasourceType": "StoredProc",
+            "datasourceDescription": "Retrieves employee data with department filter",
+            "parameters": [{
+                "parameterName": "departmentId",
+                "dataType": "INTEGER",
+                "parameterDirection": "Input",
+                "nullable": true
+            }],
+            "columns": [
+                {
+                    "sourceColumn": "employee_id",
+                    "displayName": "employeeId",
+                    "dataType": "INTEGER",
+                    "sortable": true,
+                    "groupable": false,
+                    "filterable": true
+                },
+                {
+                    "sourceColumn": "first_name",
+                    "displayName": "firstName",
+                    "dataType": "VARCHAR",
+                    "sortable": true,
+                    "groupable": false,
+                    "filterable": true
+                },
+                {
+                    "sourceColumn": "last_name",
+                    "displayName": "lastName",
+                    "dataType": "VARCHAR",
+                    "sortable": true,
+                    "groupable": false,
+                    "filterable": true
+                },
+                {
+                    "sourceColumn": "salary",
+                    "displayName": "salary",
+                    "dataType": "DECIMAL",
+                    "sortable": true,
+                    "groupable": true,
+                    "filterable": true
+                },
+                {
+                    "sourceColumn": "hire_date",
+                    "displayName": "hireDate",
+                    "dataType": "DATE",
+                    "sortable": true,
+                    "groupable": false,
+                    "filterable": true
+                }
+            ]
+        }]
     }'
 );
 
-INSERT INTO REPORT_METADATA (REPORT_NAME, STORED_PROCEDURE, RESULT_CLASS, METADATA_JSON)
+INSERT INTO REPORT_METADATA (REPORT_ID, REPORT_NAME, REPORT_DESCRIPTION, METADATA_JSON)
 VALUES (
-    'sales_report',
-    'usp_GetMonthlySales',
-    'com.reporting.framework.example.SalesReport',
+    'sales-report-002',
+    'Sales Report',
+    'Monthly sales analysis',
     '{
-        "reportName": "sales_report",
-        "storedProcedure": "usp_GetMonthlySales",
-        "resultClass": "com.reporting.framework.example.SalesReport",
-        "inputParameters": [
-            {
-                "name": "Year",
-                "sqlType": "INTEGER",
-                "javaType": "java.lang.Integer",
-                "required": true
-            },
-            {
-                "name": "Month",
-                "sqlType": "INTEGER",
-                "javaType": "java.lang.Integer",
-                "required": true
-            }
-        ],
-        "outputParameters": [
-            {
-                "name": "TotalSales",
-                "sqlType": "DECIMAL",
-                "javaType": "java.math.BigDecimal"
-            }
-        ],
-        "resultSetMapping": {
-            "strategy": "JACKSON",
-            "columnNameFormat": "SNAKE_CASE",
-            "fieldNameFormat": "CAMEL_CASE"
-        }
+        "reportId": "sales-report-002",
+        "reportName": "Sales Report",
+        "reportDescription": "Monthly sales analysis",
+        "datasets": [{
+            "datasource": "usp_GetSales",
+            "datasourceId": "ds-001",
+            "datasourceType": "StoredProc",
+            "datasourceDescription": "Retrieves sales data",
+            "parameters": [],
+            "columns": [
+                {
+                    "sourceColumn": "sale_id",
+                    "displayName": "saleId",
+                    "dataType": "INTEGER",
+                    "sortable": true,
+                    "groupable": false,
+                    "filterable": true
+                },
+                {
+                    "sourceColumn": "product_name",
+                    "displayName": "productName",
+                    "dataType": "VARCHAR",
+                    "sortable": true,
+                    "groupable": true,
+                    "filterable": true
+                },
+                {
+                    "sourceColumn": "sales_amount",
+                    "displayName": "salesAmount",
+                    "dataType": "DECIMAL",
+                    "sortable": true,
+                    "groupable": true,
+                    "filterable": true
+                }
+            ]
+        }]
+    }'
+);
+
+INSERT INTO REPORT_METADATA (REPORT_ID, REPORT_NAME, REPORT_DESCRIPTION, METADATA_JSON)
+VALUES (
+    'department-report-003',
+    'Department Report',
+    'Department summary with budget information',
+    '{
+        "reportId": "department-report-003",
+        "reportName": "Department Report",
+        "reportDescription": "Department summary with budget information",
+        "datasets": [{
+            "datasource": "usp_GetDepartments",
+            "datasourceId": "ds-001",
+            "datasourceType": "StoredProc",
+            "datasourceDescription": "Retrieves department data",
+            "parameters": [],
+            "columns": [
+                {
+                    "sourceColumn": "department_id",
+                    "displayName": "departmentId",
+                    "dataType": "INTEGER",
+                    "sortable": true,
+                    "groupable": false,
+                    "filterable": true
+                },
+                {
+                    "sourceColumn": "department_name",
+                    "displayName": "departmentName",
+                    "dataType": "VARCHAR",
+                    "sortable": true,
+                    "groupable": true,
+                    "filterable": true
+                },
+                {
+                    "sourceColumn": "budget",
+                    "displayName": "budget",
+                    "dataType": "DECIMAL",
+                    "sortable": true,
+                    "groupable": false,
+                    "filterable": true
+                }
+            ]
+        }]
     }'
 );

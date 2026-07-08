@@ -1,188 +1,121 @@
 package com.reporting.framework.metadata;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.reporting.framework.connection.ConnectionProvider;
-import com.reporting.framework.exception.MetadataException;
-import com.reporting.framework.exception.MetadataNotFoundException;
-import com.reporting.framework.exception.MetadataParseException;
-import com.reporting.framework.mapper.ObjectMapperFactory;
+import com.reporting.framework.metadata.model.ReportCatalog;
+import com.reporting.framework.metadata.model.ReportMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-
 /**
- * Loads and caches stored procedure metadata from the database.
- * Uses Jackson to parse the JSON metadata into StoredProcedureMetadata objects.
+ * Service for loading report metadata from the database.
+ * <p>
+ * This class provides a simplified API for accessing report metadata,
+ * delegating to MetadataRepository for caching and data access. It serves
+ * as the main entry point for metadata operations in the reporting framework.
+ * </p>
+ * <p>
+ * The loader automatically validates metadata against the JSON Schema and
+ * transforms parameter names and column display names to camelCase when
+ * loading from the database.
+ * </p>
  */
 public class MetadataLoader {
 
     private static final Logger logger = LoggerFactory.getLogger(MetadataLoader.class);
 
     private final MetadataRepository repository;
-    private final ObjectMapper objectMapper;
-    private final ConcurrentMap<String, StoredProcedureMetadata> cache;
-    private final boolean cacheEnabled;
 
+    /**
+     * Constructs a MetadataLoader.
+     * <p>
+     * Initializes the repository and validator, and optionally warms the
+     * metadata cache at startup.
+     * </p>
+     *
+     * @param connectionProvider provides database connections
+     */
     public MetadataLoader(ConnectionProvider connectionProvider) {
         this(connectionProvider, true);
     }
 
-    public MetadataLoader(ConnectionProvider connectionProvider, boolean cacheEnabled) {
-        this.repository = new MetadataRepository(connectionProvider);
-        this.objectMapper = ObjectMapperFactory.createObjectMapper();
-        this.cache = new ConcurrentHashMap<>();
-        this.cacheEnabled = cacheEnabled;
-
-        // Cache warming on startup
-        if (cacheEnabled) {
-            warmCache();
-        }
-    }
-
     /**
-     * Load all procedure metadata on startup to warm the cache.
-     * If cache warming fails, logs a warning and continues (will load on-demand).
-     */
-    private void warmCache() {
-        logger.info("Warming metadata cache...");
-        try {
-            List<StoredProcedureMetadata> allMetadata = loadAllMetadata();
-            for (StoredProcedureMetadata metadata : allMetadata) {
-                cache.put(metadata.getProcedureId(), metadata);
-            }
-            logger.info("Cache warmed with {} procedures", cache.size());
-        } catch (Exception e) {
-            logger.warn("Failed to warm cache, will load metadata on-demand", e);
-        }
-    }
-
-    /**
-     * Load all metadata from the database (for cache warming).
-     */
-    private List<StoredProcedureMetadata> loadAllMetadata() {
-        try {
-            // Call metadata stored proc with NULL to get all procedures
-            String json = repository.fetchMetadataJson(null);
-
-            if (json == null || json.trim().isEmpty()) {
-                throw new MetadataException("Metadata stored proc returned null/empty JSON for all procedures");
-            }
-
-            // Parse JSON array
-            try {
-                List<StoredProcedureMetadata> metadataList = objectMapper.readValue(json,
-                        new TypeReference<List<StoredProcedureMetadata>>() {});
-
-                // Validate each metadata
-                for (StoredProcedureMetadata metadata : metadataList) {
-                    metadata.validate();
-                }
-
-                return metadataList;
-            } catch (JsonProcessingException e) {
-                throw new MetadataParseException("Failed to parse metadata JSON array: " + json, e);
-            }
-
-        } catch (Exception e) {
-            if (e instanceof MetadataException) {
-                throw (MetadataException) e;
-            }
-            throw new MetadataException("Failed to load all metadata", e);
-        }
-    }
-
-    /**
-     * Get metadata for a stored procedure. Uses cache if enabled.
+     * Constructs a MetadataLoader with optional cache warming.
      *
-     * @param procedureId The ID of the stored procedure
-     * @return The parsed and validated StoredProcedureMetadata
-     * @throws MetadataException if metadata cannot be loaded or parsed
+     * @param connectionProvider provides database connections
+     * @param warmCacheOnStartup whether to load all metadata at startup
      */
-    public StoredProcedureMetadata getMetadata(String procedureId) {
-        if (procedureId == null || procedureId.trim().isEmpty()) {
-            throw new MetadataException("Procedure ID cannot be null or empty");
-        }
+    public MetadataLoader(ConnectionProvider connectionProvider, boolean warmCacheOnStartup) {
+        JsonSchemaValidator schemaValidator = new JsonSchemaValidator();
+        this.repository = new MetadataRepository(connectionProvider, schemaValidator);
 
-        // Check cache first if enabled
-        if (cacheEnabled) {
-            StoredProcedureMetadata cached = cache.get(procedureId);
-            if (cached != null) {
-                logger.debug("Metadata cache hit for procedure: {}", procedureId);
-                return cached;
-            }
-        }
-
-        // Load from database
-        logger.debug("Loading metadata from database for procedure: {}", procedureId);
-        StoredProcedureMetadata metadata = loadFromDatabase(procedureId);
-
-        // Validate metadata
-        metadata.validate();
-
-        // Cache if enabled
-        if (cacheEnabled) {
-            cache.put(procedureId, metadata);
-            logger.debug("Cached metadata for procedure: {}", procedureId);
-        }
-
-        return metadata;
-    }
-
-    /**
-     * Load metadata from database and parse JSON.
-     */
-    private StoredProcedureMetadata loadFromDatabase(String procedureId) {
-        try {
-            String metadataJson = repository.fetchMetadataJson(procedureId);
-
-            if (metadataJson == null || metadataJson.trim().isEmpty()) {
-                throw new MetadataNotFoundException(procedureId);
-            }
-
-            // Parse JSON to StoredProcedureMetadata object
+        if (warmCacheOnStartup) {
+            logger.info("Warming metadata cache on startup...");
             try {
-                StoredProcedureMetadata metadata = objectMapper.readValue(metadataJson, StoredProcedureMetadata.class);
-                logger.info("Successfully loaded metadata for procedure: {}", procedureId);
-                return metadata;
-            } catch (JsonProcessingException e) {
-                throw new MetadataParseException(
-                        "Failed to parse metadata JSON for procedure: " + procedureId, e);
+                repository.loadCache();
+            } catch (Exception e) {
+                logger.warn("Failed to warm cache on startup, will load on-demand", e);
             }
-
-        } catch (Exception e) {
-            if (e instanceof MetadataException) {
-                throw (MetadataException) e;
-            }
-            logger.error("Failed to load metadata for procedure: {}", procedureId, e);
-            throw new MetadataException(procedureId, "Failed to load metadata", e);
         }
     }
 
     /**
-     * Invalidate the cache for a specific procedure.
+     * Loads metadata for a single report by ID.
+     * <p>
+     * Retrieves from cache if available, otherwise loads from database,
+     * validates against JSON Schema, and caches the result.
+     * </p>
+     * <p>
+     * Parameter names and column display names are automatically converted
+     * to camelCase during loading.
+     * </p>
+     *
+     * @param reportId the unique identifier for the report
+     * @return the complete report metadata
+     * @throws com.reporting.framework.exception.MetadataNotFoundException if report not found
+     * @throws com.reporting.framework.exception.MetadataValidationException if metadata is invalid
      */
-    public void invalidateCache(String procedureId) {
-        cache.remove(procedureId);
-        logger.debug("Invalidated cache for procedure: {}", procedureId);
+    public ReportMetadata load(String reportId) {
+        logger.debug("Loading metadata for reportId='{}'", reportId);
+
+        if (reportId == null || reportId.trim().isEmpty()) {
+            throw new IllegalArgumentException("reportId cannot be null or empty");
+        }
+
+        return repository.getById(reportId);
     }
 
     /**
-     * Clear the entire metadata cache.
+     * Loads the complete catalog of all available reports.
+     * <p>
+     * Returns metadata for all reports in the system. Useful for building
+     * report selection UIs or admin dashboards.
+     * </p>
+     *
+     * @return the report catalog containing all available reports
      */
-    public void clearCache() {
-        cache.clear();
-        logger.debug("Cleared entire metadata cache");
+    public ReportCatalog loadCatalog() {
+        logger.debug("Loading report catalog");
+        return repository.getCatalog();
     }
 
     /**
-     * Get the current cache size.
+     * Refreshes the metadata cache by reloading from the database.
+     * <p>
+     * Call this method after metadata changes in the database to ensure
+     * the cache reflects the latest state.
+     * </p>
+     */
+    public void refreshCache() {
+        logger.info("Refreshing metadata cache");
+        repository.refreshCache();
+    }
+
+    /**
+     * Returns the current number of cached metadata entries.
+     *
+     * @return the cache size
      */
     public int getCacheSize() {
-        return cache.size();
+        return repository.getCacheSize();
     }
 }

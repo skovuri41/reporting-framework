@@ -1,0 +1,101 @@
+{
+  "reportId": "employee-analysis-001",
+  "reportName": "Employee Analysis Report",
+  "reportDescription": "Comprehensive analysis of employee data including salary, department, and performance metrics",
+  "datasets": [
+    {
+      "datasource": "usp_GetEmployees",
+      "datasourceId": "ds-001",
+      "datasourceType": "StoredProc",
+      "datasourceDescription": "Retrieves employee data with optional department filter",
+      "parameters": [
+        {
+          "parameterName": "departmentId",
+          "dataType": "INTEGER",
+          "parameterDirection": "Input",
+          "nullable": true
+        },
+        {
+          "parameterName": "totalRecords",
+          "dataType": "INTEGER",
+          "parameterDirection": "Output",
+          "nullable": false
+        }
+      ],
+      "columns": [
+        {
+          "sourceColumn": "employee_id",
+          "displayName": "employeeId",
+          "dataType": "INTEGER",
+          "sortable": true,
+          "groupable": false,
+          "filterable": true
+        },
+        {
+          "sourceColumn": "full_name",
+          "displayName": "fullName",
+          "dataType": "VARCHAR",
+          "sortable": true,
+          "groupable": false,
+          "filterable": true
+        },
+        {
+          "sourceColumn": "department_name",
+          "displayName": "departmentName",
+          "dataType": "VARCHAR",
+          "sortable": true,
+          "groupable": true,
+          "filterable": true
+        },
+        {
+          "sourceColumn": "salary",
+          "displayName": "salary",
+          "dataType": "DECIMAL",
+          "sortable": true,
+          "groupable": true,
+          "filterable": true
+        },
+        {
+          "sourceColumn": "hire_date",
+          "displayName": "hireDate",
+          "dataType": "DATE",
+          "sortable": true,
+          "groupable": false,
+          "filterable": true
+        }
+      ]
+    },
+    {
+      "datasource": "usp_GetEmployeeMetrics",
+      "datasourceId": "ds-002",
+      "datasourceType": "StoredProc",
+      "datasourceDescription": "Retrieves aggregated performance metrics for employees",
+      "parameters": [
+        {
+          "parameterName": "employeeId",
+          "dataType": "INTEGER",
+          "parameterDirection": "Input",
+          "nullable": false
+        }
+      ],
+      "columns": [
+        {
+          "sourceColumn": "metric_name",
+          "displayName": "metricName",
+          "dataType": "VARCHAR",
+          "sortable": true,
+          "groupable": true,
+          "filterable": false
+        },
+        {
+          "sourceColumn": "metric_value",
+          "displayName": "metricValue",
+          "dataType": "DECIMAL",
+          "sortable": true,
+          "groupable": false,
+          "filterable": true
+        }
+      ]
+    }
+  ]
+}

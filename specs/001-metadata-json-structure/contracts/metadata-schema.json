@@ -1,0 +1,194 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://reporting-framework/schemas/metadata.json",
+  "title": "Report Metadata Schema",
+  "description": "JSON Schema for report metadata structure in the reporting framework",
+  "version": "1.0.0",
+
+  "definitions": {
+    "ParameterDirection": {
+      "type": "string",
+      "enum": ["Input", "Output"],
+      "description": "Direction of parameter flow"
+    },
+
+    "SqlDataType": {
+      "type": "string",
+      "enum": [
+        "INTEGER", "BIGINT", "VARCHAR", "NVARCHAR",
+        "DECIMAL", "NUMERIC", "DATE", "DATETIME", "DATETIME2", "BIT"
+      ],
+      "description": "Supported SQL Server data types"
+    },
+
+    "Parameter": {
+      "type": "object",
+      "required": ["parameterName", "dataType", "parameterDirection", "nullable"],
+      "properties": {
+        "parameterName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Name of the parameter"
+        },
+        "dataType": {
+          "$ref": "#/definitions/SqlDataType",
+          "description": "SQL data type of the parameter"
+        },
+        "parameterDirection": {
+          "$ref": "#/definitions/ParameterDirection",
+          "description": "Input or Output parameter"
+        },
+        "nullable": {
+          "type": "boolean",
+          "description": "Whether the parameter accepts null values"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "Column": {
+      "type": "object",
+      "required": ["sourceColumn", "displayName", "dataType", "sortable", "groupable", "filterable"],
+      "properties": {
+        "sourceColumn": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Original column name from data source"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "description": "User-friendly display name for UI"
+        },
+        "dataType": {
+          "$ref": "#/definitions/SqlDataType",
+          "description": "SQL data type of the column"
+        },
+        "sortable": {
+          "type": "boolean",
+          "description": "Whether column supports sorting in UI"
+        },
+        "groupable": {
+          "type": "boolean",
+          "description": "Whether column supports grouping in UI"
+        },
+        "filterable": {
+          "type": "boolean",
+          "description": "Whether column supports filtering in UI"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "Dataset": {
+      "type": "object",
+      "required": ["datasource", "datasourceId", "datasourceType", "datasourceDescription", "parameters", "columns"],
+      "properties": {
+        "datasource": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "description": "Name of the data source (e.g., stored procedure name)"
+        },
+        "datasourceId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Unique identifier for this dataset within the report"
+        },
+        "datasourceType": {
+          "type": "string",
+          "const": "StoredProc",
+          "description": "Type of data source (currently only StoredProc supported)"
+        },
+        "datasourceDescription": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Description of what this dataset provides"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Parameter"
+          },
+          "description": "Input and output parameters for the dataset"
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Column"
+          },
+          "description": "Column definitions with UI metadata"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "ReportMetadata": {
+      "type": "object",
+      "required": ["reportId", "reportName", "reportDescription", "datasets"],
+      "properties": {
+        "reportId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Unique identifier for the report"
+        },
+        "reportName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "description": "Display name of the report"
+        },
+        "reportDescription": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Human-readable description of the report"
+        },
+        "datasets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/Dataset"
+          },
+          "description": "Collection of datasets for this report"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "ReportCatalog": {
+      "type": "object",
+      "required": ["reports", "count"],
+      "properties": {
+        "reports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ReportMetadata"
+          },
+          "description": "List of all available report metadata"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of reports in the catalog"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+
+  "oneOf": [
+    {
+      "$ref": "#/definitions/ReportMetadata",
+      "description": "Single report metadata response"
+    },
+    {
+      "$ref": "#/definitions/ReportCatalog",
+      "description": "Full catalog response"
+    }
+  ]
+}

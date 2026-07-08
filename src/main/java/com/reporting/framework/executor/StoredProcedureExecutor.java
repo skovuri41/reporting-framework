@@ -2,8 +2,10 @@ package com.reporting.framework.executor;
 
 import com.reporting.framework.connection.ConnectionProvider;
 import com.reporting.framework.exception.ReportExecutionException;
-import com.reporting.framework.metadata.ParameterMetadata;
-import com.reporting.framework.metadata.StoredProcedureMetadata;
+import com.reporting.framework.metadata.model.Dataset;
+import com.reporting.framework.metadata.model.Parameter;
+import com.reporting.framework.metadata.model.ParameterDirection;
+// SqlTypeMapper not needed - GenericParameterBinder handles type conversion
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,10 +16,15 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Executes stored procedures using CallableStatement.
- * Handles parameter binding and output parameter extraction.
+ * <p>
+ * Updated to work with new Dataset metadata model from Phase 2.
+ * Handles parameter binding based on ParameterDirection (Input/Output)
+ * and extracts output parameter values after execution.
+ * </p>
  */
 public class StoredProcedureExecutor {
 
@@ -32,17 +39,17 @@ public class StoredProcedureExecutor {
     }
 
     /**
-     * Execute a stored procedure and return results.
+     * Execute a stored procedure defined in a dataset.
      *
-     * @param metadata The stored procedure metadata
-     * @param inputParameters The input parameter values
+     * @param dataset The dataset containing stored procedure metadata
+     * @param inputParameters The input parameter values (name → value)
      * @return ExecutionResult containing ResultSet and output parameters
      */
-    public ExecutionResult execute(StoredProcedureMetadata metadata, Map<String, Object> inputParameters) {
-        String procedureId = metadata.getProcedureId();
-        String procedureName = metadata.getProcedureName();
+    public ExecutionResult execute(Dataset dataset, Map<String, Object> inputParameters) {
+        String datasource = dataset.getDatasource();
+        String datasourceId = dataset.getDatasourceId();
 
-        logger.info("Executing stored procedure: {} (ID: {})", procedureName, procedureId);
+        logger.info("Executing stored procedure: {} (Dataset ID: {})", datasource, datasourceId);
 
         Connection connection = null;
         CallableStatement statement = null;
@@ -52,8 +59,17 @@ public class StoredProcedureExecutor {
             // Get database connection
             connection = connectionProvider.getConnection();
 
+            // Separate input and output parameters
+            List<Parameter> inputParams = dataset.getParameters().stream()
+                .filter(p -> p.getParameterDirection() == ParameterDirection.INPUT)
+                .collect(Collectors.toList());
+
+            List<Parameter> outputParams = dataset.getParameters().stream()
+                .filter(p -> p.getParameterDirection() == ParameterDirection.OUTPUT)
+                .collect(Collectors.toList());
+
             // Build CallableStatement SQL
-            String sql = buildCallableStatementSql(metadata);
+            String sql = buildCallableStatementSql(datasource, inputParams.size() + outputParams.size());
             logger.debug("CallableStatement SQL: {}", sql);
 
             // Prepare CallableStatement
@@ -64,25 +80,27 @@ public class StoredProcedureExecutor {
             Map<String, Integer> outputParamIndices = new HashMap<>();
 
             // Process input parameters
-            for (ParameterMetadata param : metadata.getInputParameters()) {
-                Object value = inputParameters.get(param.getName());
+            for (Parameter param : inputParams) {
+                Object value = inputParameters.get(param.getParameterName());
 
-                // Validate required parameters
-                if (param.isRequired() && value == null) {
-                    throw new ReportExecutionException(procedureId, procedureName,
-                            "Required parameter is missing: " + param.getName());
+                // Validate required (non-nullable) parameters
+                if (!param.getNullable() && value == null) {
+                    throw new ReportExecutionException(
+                        "Required parameter '" + param.getParameterName() + "' is missing for dataset '" +
+                        datasourceId + "'"
+                    );
                 }
 
                 parameterBinder.bindInputParameter(
-                        statement, param.getName(), value, param.getSqlType(), paramIndex);
+                    statement, param.getParameterName(), value, param.getDataType(), paramIndex);
                 paramIndex++;
             }
 
             // Register output parameters
-            for (ParameterMetadata param : metadata.getOutputParameters()) {
+            for (Parameter param : outputParams) {
                 parameterBinder.registerOutputParameter(
-                        statement, param.getName(), param.getSqlType(), paramIndex);
-                outputParamIndices.put(param.getName(), paramIndex);
+                    statement, param.getParameterName(), param.getDataType(), paramIndex);
+                outputParamIndices.put(param.getParameterName(), paramIndex);
                 paramIndex++;
             }
 
@@ -97,15 +115,16 @@ public class StoredProcedureExecutor {
 
             // Extract output parameters
             Map<String, Object> outputParameters = new HashMap<>();
-            for (ParameterMetadata param : metadata.getOutputParameters()) {
-                int index = outputParamIndices.get(param.getName());
+            for (Parameter param : outputParams) {
+                int index = outputParamIndices.get(param.getParameterName());
+
                 Object value = parameterBinder.getOutputParameter(
-                        statement, param.getName(), param.getSqlType(), index);
-                outputParameters.put(param.getName(), value);
+                    statement, param.getParameterName(), param.getDataType(), index);
+                outputParameters.put(param.getParameterName(), value);
             }
 
             logger.info("Successfully executed stored procedure: {} with {} output parameters",
-                    procedureName, outputParameters.size());
+                datasource, outputParameters.size());
 
             // Note: Do NOT close connection, statement, or resultSet here
             // They will be closed by the caller after processing the ResultSet
@@ -117,20 +136,22 @@ public class StoredProcedureExecutor {
             closeQuietly(statement);
             closeQuietly(connection);
 
-            logger.error("Failed to execute stored procedure: {} (ID: {})",
-                    procedureName, procedureId, e);
-            throw new ReportExecutionException(procedureId, procedureName,
-                    "Stored procedure execution failed: " + e.getMessage(), e);
+            logger.error("Failed to execute stored procedure: {} (Dataset ID: {})",
+                datasource, datasourceId, e);
+            throw new ReportExecutionException(
+                "Stored procedure execution failed for dataset '" + datasourceId +
+                "': " + e.getMessage(), e);
+
         } catch (Exception e) {
             // Clean up on error
             closeQuietly(resultSet);
             closeQuietly(statement);
             closeQuietly(connection);
 
-            logger.error("Unexpected error executing stored procedure: {} (ID: {})",
-                    procedureName, procedureId, e);
-            throw new ReportExecutionException(procedureId, procedureName,
-                    "Unexpected error: " + e.getMessage(), e);
+            logger.error("Unexpected error executing stored procedure: {} (Dataset ID: {})",
+                datasource, datasourceId, e);
+            throw new ReportExecutionException(
+                "Unexpected error for dataset '" + datasourceId + "': " + e.getMessage(), e);
         }
     }
 
@@ -138,16 +159,13 @@ public class StoredProcedureExecutor {
      * Build the CallableStatement SQL string.
      * Format: {call dbo.procedureName(?, ?, ?)}
      */
-    private String buildCallableStatementSql(StoredProcedureMetadata metadata) {
-        int totalParams = metadata.getInputParameters().size() +
-                metadata.getOutputParameters().size();
-
+    private String buildCallableStatementSql(String procedureName, int totalParams) {
         if (totalParams == 0) {
-            return "{call " + metadata.getProcedureName() + "}";
+            return "{call " + procedureName + "}";
         }
 
         StringBuilder sql = new StringBuilder("{call ");
-        sql.append(metadata.getProcedureName());
+        sql.append(procedureName);
         sql.append("(");
 
         for (int i = 0; i < totalParams; i++) {
@@ -160,6 +178,8 @@ public class StoredProcedureExecutor {
         sql.append(")}");
         return sql.toString();
     }
+
+    // getSqlType() removed - GenericParameterBinder handles SQL type conversion internally
 
     /**
      * Close a resource quietly without throwing exceptions.

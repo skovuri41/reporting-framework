@@ -1,15 +1,30 @@
 package com.reporting.framework.exception;
 
 /**
- * Exception thrown when metadata for a procedure is not found.
+ * Exception thrown when report metadata cannot be found for a given report ID.
+ * <p>
+ * This indicates that the requested report does not exist in the REPORT_METADATA
+ * table, or the metadata cache does not contain an entry for the specified ID.
+ * </p>
  */
 public class MetadataNotFoundException extends MetadataException {
 
-    public MetadataNotFoundException(String procedureId) {
-        super(procedureId, "Metadata not found for procedure");
+    /**
+     * Constructs a new MetadataNotFoundException for the specified report ID.
+     *
+     * @param reportId the report ID that was not found
+     */
+    public MetadataNotFoundException(String reportId) {
+        super(reportId, "Report metadata not found");
     }
 
-    public MetadataNotFoundException(String procedureId, String message) {
-        super(procedureId, message);
+    /**
+     * Constructs a new MetadataNotFoundException with a custom message.
+     *
+     * @param reportId the report ID that was not found
+     * @param message the custom error message
+     */
+    public MetadataNotFoundException(String reportId, String message) {
+        super(reportId, message);
     }
 }

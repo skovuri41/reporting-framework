@@ -6,16 +6,15 @@ import com.reporting.framework.data.DataSet;
 import com.reporting.framework.exception.ReportExecutionException;
 import com.reporting.framework.executor.ExecutionResult;
 import com.reporting.framework.executor.StoredProcedureExecutor;
+import com.reporting.framework.mapper.NamingStrategy;
 import com.reporting.framework.mapper.ResultSetToMapConverter;
 import com.reporting.framework.metadata.MetadataLoader;
-import com.reporting.framework.metadata.ParameterFilter;
-import com.reporting.framework.metadata.StoredProcedureMetadata;
+import com.reporting.framework.metadata.model.Dataset;
+import com.reporting.framework.metadata.model.ReportCatalog;
+import com.reporting.framework.metadata.model.ReportMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.CallableStatement;
-import java.sql.Connection;
-import java.sql.ResultSet;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -23,12 +22,14 @@ import java.util.stream.Collectors;
 
 /**
  * Main entry point for executing reports dynamically.
- *
+ * <p>
  * Returns DataSet results that support fluent transformations (filter, join, groupBy, etc.)
  * without requiring POJO classes. Columns are auto-inferred from ResultSet metadata.
- *
+ * </p>
+ * <p>
  * This fully dynamic approach provides maximum flexibility for data transformation
  * and JSON output generation.
+ * </p>
  */
 public class ReportService {
 
@@ -37,7 +38,6 @@ public class ReportService {
     private final MetadataLoader metadataLoader;
     private final StoredProcedureExecutor executor;
     private final ResultSetToMapConverter resultSetConverter;
-    private final ParameterFilter parameterFilter;
 
     /**
      * Create a ReportService with the given ConnectionProvider.
@@ -63,129 +63,129 @@ public class ReportService {
         this.metadataLoader = new MetadataLoader(connectionProvider, enableMetadataCache);
         this.executor = new StoredProcedureExecutor(connectionProvider);
         this.resultSetConverter = new ResultSetToMapConverter();
-        this.parameterFilter = new ParameterFilter();
 
         logger.info("ReportService initialized with metadata cache: {}", enableMetadataCache);
     }
 
     /**
-     * Execute a stored procedure and return a DataSet with dynamic schema.
+     * Execute a report by its ID with input parameters.
+     * <p>
+     * For reports with multiple datasets, executes the first dataset only.
+     * </p>
      *
-     * Columns are mapped to camelCase field names based on metadata.
-     * The returned DataSet supports fluent transformations: filter, join, groupBy,
-     * select, orderBy, and JSON output generation.
-     *
-     * @param procedureId The ID of the stored procedure to execute
-     * @param inputParameters Map of input parameter names to values (can be null)
+     * @param reportId The ID of the report to execute
+     * @param inputParameters The input parameter values (name → value)
      * @return DataSet containing rows as DataRows and output parameters
      */
-    public DataSet execute(String procedureId, Map<String, Object> inputParameters) {
-        logger.info("Executing procedure: {} with {} input parameters",
-                procedureId, inputParameters != null ? inputParameters.size() : 0);
+    public DataSet execute(String reportId, Map<String, Object> inputParameters) {
+        logger.info("Executing report: {} with {} input parameters",
+                reportId, inputParameters != null ? inputParameters.size() : 0);
 
-        // Load metadata
-        StoredProcedureMetadata metadata = metadataLoader.getMetadata(procedureId);
-        logger.debug("Loaded metadata for procedure: {}", procedureId);
+        // Load report metadata
+        ReportMetadata metadata = metadataLoader.load(reportId);
+        logger.debug("Loaded metadata for report: {}", reportId);
 
-        // Execute procedure
-        return executeProcedure(metadata, inputParameters);
-    }
-
-    /**
-     * Execute a stored procedure with no input parameters.
-     *
-     * @param procedureId The ID of the stored procedure to execute
-     * @return DataSet containing rows as DataRows and output parameters
-     */
-    public DataSet execute(String procedureId) {
-        return execute(procedureId, Collections.emptyMap());
-    }
-
-    /**
-     * Execute the stored procedure with the given metadata and parameters.
-     */
-    private DataSet executeProcedure(StoredProcedureMetadata metadata,
-                                     Map<String, Object> inputParameters) {
-        String procedureId = metadata.getProcedureId();
-        Connection connection = null;
-        CallableStatement statement = null;
-        ResultSet resultSet = null;
-
-        try {
-            // Filter parameters based on metadata
-            Map<String, Object> filteredParameters = parameterFilter.filterParameters(
-                    inputParameters, metadata);
-
-            // Execute stored procedure
-            ExecutionResult executionResult = executor.execute(metadata, filteredParameters);
-
-            resultSet = executionResult.getResultSet();
-            Map<String, Object> outputParameters = executionResult.getOutputParameters();
-
-            List<DataRow> rows;
-
-            if (resultSet != null) {
-                // Convert ResultSet to Maps using metadata column mappings (SQL -> camelCase)
-                List<Map<String, Object>> maps = resultSetConverter.convertToMaps(resultSet, metadata);
-
-                // Convert Maps to DataRows
-                rows = maps.stream()
-                        .map(DataRow::of)
-                        .collect(Collectors.toList());
-
-                logger.info("Procedure {} executed successfully with {} results",
-                        procedureId, rows.size());
-            } else {
-                // No result set (stored procedure may only have output parameters)
-                rows = Collections.emptyList();
-                logger.info("Procedure {} executed successfully with no result set", procedureId);
-            }
-
-            // Create and return DataSet
-            return new DataSet(rows, outputParameters, procedureId);
-
-        } catch (Exception e) {
-            logger.error("Failed to execute procedure: {}", procedureId, e);
-            if (e instanceof ReportExecutionException) {
-                throw (ReportExecutionException) e;
-            }
-            throw new ReportExecutionException(procedureId, metadata.getProcedureName(),
-                    "Procedure execution failed: " + e.getMessage(), e);
-
-        } finally {
-            // Clean up resources
-            if (resultSet != null) {
-                try {
-                    statement = (CallableStatement) resultSet.getStatement();
-                    connection = statement.getConnection();
-                } catch (Exception e) {
-                    logger.warn("Error getting connection/statement from ResultSet", e);
-                }
-            }
-            executor.closeResources(connection, statement, resultSet);
+        // Get first dataset (single-dataset reports for now)
+        if (metadata.getDatasets().isEmpty()) {
+            throw new ReportExecutionException(
+                "Report '" + reportId + "' has no datasets defined in metadata"
+            );
         }
+
+        Dataset dataset = metadata.getDatasets().get(0);
+        if (metadata.getDatasets().size() > 1) {
+            logger.warn("Report '{}' has {} datasets. Executing first dataset only: {}",
+                reportId, metadata.getDatasets().size(), dataset.getDatasourceId());
+        }
+
+        // Execute the dataset
+        return executeDataset(reportId, dataset, inputParameters);
     }
 
     /**
-     * Invalidate the metadata cache for a specific procedure.
+     * Execute a report with no input parameters.
+     *
+     * @param reportId The ID of the report to execute
+     * @return DataSet containing rows as DataRows and output parameters
      */
-    public void invalidateMetadataCache(String procedureId) {
-        metadataLoader.invalidateCache(procedureId);
-        logger.info("Invalidated metadata cache for procedure: {}", procedureId);
+    public DataSet execute(String reportId) {
+        return execute(reportId, Collections.emptyMap());
     }
 
     /**
-     * Clear the entire metadata cache.
+     * Get metadata for a report.
+     *
+     * @param reportId The report ID
+     * @return The report metadata
      */
-    public void clearMetadataCache() {
-        metadataLoader.clearCache();
-        logger.info("Cleared entire metadata cache");
+    public ReportMetadata getMetadata(String reportId) {
+        return metadataLoader.load(reportId);
     }
 
     /**
-     * Get the current metadata cache size.
+     * Get catalog of all available reports.
+     *
+     * @return The report catalog
+     */
+    public ReportCatalog getCatalog() {
+        return metadataLoader.loadCatalog();
+    }
+
+    /**
+     * Refresh the metadata cache.
+     */
+    public void refreshMetadataCache() {
+        logger.info("Refreshing metadata cache");
+        metadataLoader.refreshCache();
+    }
+
+    /**
+     * Get current metadata cache size.
+     *
+     * @return number of cached metadata entries
      */
     public int getMetadataCacheSize() {
         return metadataLoader.getCacheSize();
+    }
+
+    /**
+     * Execute a single dataset from a report.
+     */
+    private DataSet executeDataset(String reportId, Dataset dataset,
+                                   Map<String, Object> inputParameters) {
+        String datasource = dataset.getDatasource();
+        logger.info("Executing dataset '{}' (datasource: {}) for report '{}'",
+            dataset.getDatasourceId(), datasource, reportId);
+
+        try {
+            // Execute stored procedure
+            ExecutionResult result = executor.execute(dataset, inputParameters);
+
+            // Convert ResultSet to List<Map>
+            List<Map<String, Object>> rows = resultSetConverter.convertToMaps(
+                result.getResultSet(),
+                NamingStrategy.CAMEL_CASE
+            );
+
+            // Convert to DataRows
+            List<DataRow> dataRows = rows.stream()
+                .map(DataRow::of)
+                .collect(Collectors.toList());
+
+            logger.info("Executed dataset '{}' successfully: {} rows, {} output parameters",
+                dataset.getDatasourceId(), dataRows.size(), result.getOutputParameters().size());
+
+            // Create DataSet
+            return new DataSet(dataRows, result.getOutputParameters(), reportId);
+
+        } catch (Exception e) {
+            logger.error("Failed to execute dataset '{}' for report '{}'",
+                dataset.getDatasourceId(), reportId, e);
+            throw new ReportExecutionException(
+                "Failed to execute dataset '" + dataset.getDatasourceId() +
+                "' for report '" + reportId + "': " + e.getMessage(),
+                e
+            );
+        }
     }
 }

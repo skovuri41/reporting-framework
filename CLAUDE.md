@@ -22,7 +22,7 @@ mvn clean install
 # Compile only
 mvn compile
 
-# Run all tests (expect 69 tests: 52 passed, 17 skipped)
+# Run all tests (expect 108+ tests)
 mvn test
 
 # Run specific test class
@@ -75,9 +75,19 @@ DataSet → JSON output
 - `DataQuery` - Fluent DSL builder for transformations (filter, select, orderBy, groupBy, withColumn, etc.)
 - `DataOperations` - Static methods for complex operations (joins, unions, pivots, aggregations)
 
+**Metadata Model:**
+- `ReportMetadata` - Immutable report definition (reportId, reportName, description, datasets)
+- `Dataset` - Immutable dataset definition (datasource, parameters, columns)
+- `Parameter` - Input/Output parameter metadata with automatic camelCase transformation
+- `Column` - Column metadata (sourceColumn preserved, displayName transformed to camelCase)
+- `ReportCatalog` - Immutable catalog of all available reports
+
 **Metadata & Execution:**
-- `MetadataLoader` - Loads report metadata from REPORT_METADATA table (with caching)
-- `StoredProcedureExecutor` - Executes stored procedures via CallableStatement
+- `MetadataLoader` - Loads report metadata from REPORT_METADATA table (with in-memory caching)
+- `MetadataRepository` - Fetches and validates JSON metadata, applies naming transformations
+- `JsonSchemaValidator` - Validates metadata JSON against JSON Schema Draft 7
+- `NamingConverter` - Transforms snake_case/PascalCase/UPPER_SNAKE_CASE to camelCase
+- `StoredProcedureExecutor` - Executes stored procedures via CallableStatement with Dataset metadata
 - `ResultSetToMapConverter` - Converts ResultSet to List<Map<String, Object>>
 
 **Connection Management:**
@@ -97,6 +107,82 @@ com.reporting.framework/
 ├── connection/              # Connection providers
 └── exception/               # Framework exceptions
 ```
+
+## Metadata System Architecture (Phase 2)
+
+### Metadata Loading Flow
+
+```
+Client calls service.execute(reportId, params)
+  ↓
+MetadataLoader.load(reportId)
+  ↓
+Check in-memory cache (ConcurrentHashMap)
+  ↓ (cache miss)
+MetadataRepository.getReportMetadata(reportId)
+  ↓
+Load METADATA_JSON from database
+  ↓
+JsonSchemaValidator.validate(reportId, json)
+  ↓
+Jackson deserializes JSON → ReportMetadata
+  ↓
+Apply naming transformations:
+  - Parameters: parameterName → camelCase
+  - Columns: displayName → camelCase (sourceColumn preserved)
+  ↓
+Create immutable DTOs (defensive copy of lists)
+  ↓
+Store in cache
+  ↓
+Return to caller
+```
+
+### Naming Transformation Rules
+
+**NamingConverter.toCamelCase()** automatically transforms:
+
+| Input Format | Example Input | Output | Notes |
+|--------------|---------------|--------|-------|
+| snake_case | `department_id` | `departmentId` | Common in SQL |
+| UPPER_SNAKE_CASE | `EMPLOYEE_COUNT` | `employeeCount` | SQL constants |
+| PascalCase | `StartDate` | `startDate` | C# conventions |
+| Single uppercase | `X` | `x` | Edge case |
+| Already camelCase | `employeeId` | `employeeId` | No change |
+
+**Important:**
+- Transformation happens AFTER Jackson deserialization
+- `Column.sourceColumn` is **NOT transformed** (preserves exact SQL column name)
+- `Column.displayName` IS transformed (client-facing name)
+- `Parameter.parameterName` IS transformed (used in parameter maps)
+
+### Immutability Guarantees
+
+All metadata DTOs are immutable:
+- Constructor-only initialization with `@JsonCreator`
+- Lists wrapped with `Collections.unmodifiableList()` (defensive copy)
+- No setters
+- All fields `final`
+
+Example:
+```java
+ReportMetadata metadata = metadataLoader.load("report-001");
+metadata.getDatasets().clear();  // Throws UnsupportedOperationException
+```
+
+### Performance Characteristics
+
+**Caching Strategy:**
+- In-memory cache using `ConcurrentHashMap<String, ReportMetadata>`
+- Thread-safe for concurrent access
+- No TTL/expiration (manual refresh via `refreshCache()`)
+- Catalog loads ALL reports in single SQL query
+
+**Benchmarks (H2 in-memory):**
+- Single report first load: ~10-20ms (includes validation + transformation)
+- Single report cached load: <1ms
+- Catalog load (100 reports): ~82ms (target: <1000ms)
+- Cache lookup: O(1) hash map access
 
 ## Key Design Patterns
 
@@ -260,30 +346,129 @@ String json = result.toPrettyJSON();
 
 ## Metadata-Driven Configuration
 
-Reports are configured via database metadata in `REPORT_METADATA` table:
+### New JSON Metadata Structure (Phase 2)
+
+Reports are configured via JSON metadata stored in the `REPORT_METADATA` table. The JSON structure is validated against JSON Schema Draft 7 and automatically transformed to camelCase naming conventions.
+
+#### Database Schema
 
 ```sql
-INSERT INTO REPORT_METADATA (REPORT_NAME, STORED_PROCEDURE, RESULT_CLASS, METADATA_JSON)
-VALUES ('employees', 'dbo.usp_GetEmployees', 'java.util.Map',
-'{
-  "reportName": "employees",
-  "storedProcedure": "dbo.usp_GetEmployees",
-  "resultClass": "java.util.Map",
-  "inputParameters": [
-    {"name": "DepartmentId", "sqlType": "INTEGER", "javaType": "java.lang.Integer", "required": true}
-  ]
-}');
+CREATE TABLE REPORT_METADATA (
+    REPORT_ID VARCHAR(100) PRIMARY KEY,
+    REPORT_NAME VARCHAR(255) NOT NULL,
+    REPORT_DESCRIPTION VARCHAR(1000),
+    METADATA_JSON NVARCHAR(MAX) NOT NULL,  -- JSON structure below
+    CREATED_DATE DATETIME DEFAULT CURRENT_TIMESTAMP,
+    MODIFIED_DATE DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
-**Key Point:** Use `"resultClass": "java.util.Map"` for dynamic mode (current focus).
+#### JSON Metadata Structure
+
+```json
+{
+  "reportId": "employee-report-001",
+  "reportName": "Employee Report",
+  "reportDescription": "Lists employees with filters",
+  "datasets": [
+    {
+      "datasource": "dbo.usp_GetEmployees",
+      "datasourceId": "ds-employees",
+      "datasourceType": "StoredProc",
+      "datasourceDescription": "Fetches employee data",
+      "parameters": [
+        {
+          "parameterName": "department_id",
+          "dataType": "INTEGER",
+          "parameterDirection": "Input",
+          "nullable": true
+        },
+        {
+          "parameterName": "EMPLOYEE_COUNT",
+          "dataType": "INTEGER",
+          "parameterDirection": "Output",
+          "nullable": false
+        }
+      ],
+      "columns": [
+        {
+          "sourceColumn": "employee_id",
+          "displayName": "employee_id",
+          "dataType": "INTEGER",
+          "sortable": true,
+          "groupable": false,
+          "filterable": true
+        },
+        {
+          "sourceColumn": "full_name",
+          "displayName": "FULL_NAME",
+          "dataType": "VARCHAR",
+          "sortable": true,
+          "groupable": false,
+          "filterable": true
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### Automatic Naming Transformation
+
+The framework **automatically transforms** parameter and column names to camelCase after loading:
+
+```
+Input JSON:                     After Transformation:
+─────────────────────────────  ──────────────────────────────
+department_id        (snake)  → departmentId      (camelCase)
+EMPLOYEE_COUNT       (UPPER)  → employeeCount     (camelCase)
+StartDate          (Pascal)  → startDate         (camelCase)
+employee_id        (snake)  → employeeId        (camelCase)
+FULL_NAME          (UPPER)  → fullName          (camelCase)
+DepartmentName     (Pascal)  → departmentName    (camelCase)
+```
+
+**Important:**
+- `sourceColumn` is **preserved exactly** (NOT transformed) - used for SQL column mapping
+- `displayName` is **transformed to camelCase** - used for client-facing display
+- `parameterName` is **transformed to camelCase** - used in parameter maps
+
+#### Loading Metadata
+
+```java
+// Single report
+ReportService service = new ReportService(connectionProvider);
+ReportMetadata metadata = service.getMetadata("employee-report-001");
+
+// Report catalog (all reports)
+ReportCatalog catalog = service.getCatalog();
+List<ReportSummary> reports = catalog.getReports();
+
+// Execute with transformed parameter names
+Map<String, Object> params = Map.of("departmentId", 10);  // Use camelCase!
+DataSet result = service.execute("employee-report-001", params);
+```
+
+#### JSON Schema Validation
+
+All metadata JSON is validated against JSON Schema Draft 7 on load. Validation failures throw `MetadataValidationException` with detailed error messages.
+
+Schema location: `src/main/resources/schemas/report-metadata-schema.json`
+
+#### Performance Targets
+
+- Single report load: < 100ms (actual: ~4ms with caching)
+- Catalog load (100 reports): < 1000ms (actual: ~82ms)
+- In-memory caching with `ConcurrentHashMap` (thread-safe)
 
 ## Dependencies
 
 ### Core Runtime
-- Jackson 2.17.2 (JSON)
+- Jackson 2.17.2 (JSON serialization/deserialization)
+- JSON Schema Validator 1.5.1 (networknt/json-schema-validator - JSON Schema Draft 7 validation)
 - SLF4J 2.0.13 + Logback (logging)
 - SQL Server JDBC Driver 12.8.1
-- Google Guava 33.0.0 (utilities, used for CaseFormat in NamingStrategy)
+- Google Guava 33.0.0 (utilities, used for CaseFormat in NamingConverter)
 
 ### Testing
 - JUnit Jupiter 5.10.3
@@ -321,13 +506,45 @@ When making commits, follow existing patterns seen in recent commits:
 - `src/test/resources/test-schema.sql` - H2 test schema
 
 ### Key Implementation Files
+
+**API & Entry Points:**
 - `src/main/java/com/reporting/framework/api/ReportService.java` - Main entry point
+
+**Data Layer:**
 - `src/main/java/com/reporting/framework/data/DataSet.java` - Core data container
 - `src/main/java/com/reporting/framework/data/DataQuery.java` - Fluent DSL builder
 - `src/main/java/com/reporting/framework/data/DataOperations.java` - Complex operations
-- `src/main/java/com/reporting/framework/mapper/ResultSetToMapConverter.java` - ResultSet conversion with NamingStrategy support
+
+**Metadata Model (Phase 2):**
+- `src/main/java/com/reporting/framework/metadata/model/ReportMetadata.java` - Report definition
+- `src/main/java/com/reporting/framework/metadata/model/Dataset.java` - Dataset definition
+- `src/main/java/com/reporting/framework/metadata/model/Parameter.java` - Parameter metadata
+- `src/main/java/com/reporting/framework/metadata/model/Column.java` - Column metadata
+- `src/main/java/com/reporting/framework/metadata/model/ReportCatalog.java` - Report catalog
+
+**Metadata Loading & Validation:**
+- `src/main/java/com/reporting/framework/metadata/MetadataLoader.java` - Metadata caching and loading
+- `src/main/java/com/reporting/framework/metadata/MetadataRepository.java` - Database access and transformation
+- `src/main/java/com/reporting/framework/metadata/JsonSchemaValidator.java` - JSON Schema validation
+- `src/main/java/com/reporting/framework/metadata/util/NamingConverter.java` - Naming transformation
+- `src/main/resources/schemas/report-metadata-schema.json` - JSON Schema definition
+
+**Execution:**
+- `src/main/java/com/reporting/framework/executor/StoredProcedureExecutor.java` - Stored procedure execution
+- `src/main/java/com/reporting/framework/mapper/ResultSetToMapConverter.java` - ResultSet conversion
 
 ### Tests to Run When Validating Changes
-- `FullWorkflowIntegrationTest` - Primary integration test (run this first)
+
+**Primary Integration Tests:**
+- `FullWorkflowIntegrationTest` - End-to-end workflow tests (run this first)
+- `EndToEndMetadataTest` - Complete metadata flow validation (database → cache → retrieve)
+
+**Metadata Tests:**
+- `MetadataIntegrationTest` - Metadata loading and transformation
+- `MetadataPerformanceTest` - Performance benchmarks (<100ms single, <1s catalog)
+- `JsonSchemaValidatorTest` - JSON Schema validation
+- `NamingConverterTest` - Naming transformation (snake_case, PascalCase, UPPER_SNAKE_CASE)
+
+**Unit Tests:**
 - `DataSetTest` - DataSet/DataQuery unit tests
 - `DataOperationsTest` - Joins/aggregations tests
